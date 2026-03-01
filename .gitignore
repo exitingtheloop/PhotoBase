@@ -1,0 +1,63 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio
+.vs/
+*.rsuser
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Ll]og/
+[Ll]ogs/
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+
+# Build results
+[Dd]ebugPublic/
+[Rr]eleases/
+[Bb]uild[Ll]og.*
+*.dll
+*.exe
+*.pdb
+!*.dll.config
+
+# IDE
+.idea/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# PhotoBase local data (originals + thumbnails)
+data/
+
+# PhotoBase SQLite database
+*.db
+*.db-shm
+*.db-wal
+
+# Markdown files (except README.md)
+*.md
+!README.md
+
+# Samples kept in repo
+!samples/**
+
+# User secrets
+secrets.json
