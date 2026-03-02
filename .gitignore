@@ -45,7 +45,7 @@ Thumbs.db
 desktop.ini
 
 # PhotoBase local data (originals + thumbnails)
-data/
+/data/
 
 # PhotoBase SQLite database
 *.db

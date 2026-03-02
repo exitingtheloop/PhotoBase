@@ -1,6 +1,13 @@
+using Microsoft.EntityFrameworkCore;
+using PhotoBase.API.Data;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+
+// EF Core — SQL Server (ADR-0001 updated to SQL Server per user request)
+builder.Services.AddDbContext<PhotoBaseDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("PhotoBaseDb")));
 
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
@@ -9,6 +16,14 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+
+// Auto-apply pending migrations in development
+if (app.Environment.IsDevelopment())
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<PhotoBaseDbContext>();
+    db.Database.Migrate();
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
