@@ -44,6 +44,9 @@ packages/
 Thumbs.db
 desktop.ini
 
+# Node / USWDS compile pipeline
+node_modules/
+
 # PhotoBase local data (originals + thumbnails)
 /data/
 

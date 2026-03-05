@@ -6,12 +6,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PhotoBase</title>
     <base href="/" />
-    <link rel="stylesheet" href="css/bootstrap/bootstrap.min.css" />
+    <!-- USWDS v3.13.0 compiled CSS -->
+    <link rel="stylesheet" href="css/uswds/styles.css" />
+    <!-- Blazor scoped CSS -->
+    <link href="PhotoBase.Client.styles.css" rel="stylesheet" />
+    <!-- App overrides (minimal) -->
     <link rel="stylesheet" href="css/app.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
-    <link href="PhotoBase.Client.styles.css" rel="stylesheet" />
-    <link rel="stylesheet" href="uswds-custom/dist/uswds-custom.css" />
-    <script src="uswds/js/uswds-init.min.js"></script>
+    <!-- USWDS init script (runs before page load for progressive enhancement) -->
+    <script src="js/uswds/uswds-init.min.js"></script>
 </head>
 
 <body>
@@ -34,10 +37,10 @@
             // Remove any previous USWDS script to avoid double-loading
             if (window.uswdsScriptLoaded) return;
             var s = document.createElement('script');
-            s.src = '/uswds/js/uswds.min.js';
+            s.src = '/js/uswds/uswds.min.js';
             document.body.appendChild(s);
             window.uswdsScriptLoaded = true;
-            console.log("USWDS loaded via Blazor");
+            console.log("USWDS v3 loaded via Blazor");
         };
     </script>
 </body>
