@@ -1,48 +1,35 @@
-html, body {
-    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-}
+/*
+ * PhotoBase — app.css
+ * Minimal overrides only. USWDS v3 handles all component styling.
+ * Keep this file small; prefer USWDS utility classes in markup.
+ */
 
+/* --- Blazor focus outline (matches USWDS focus style) --- */
 h1:focus {
     outline: none;
 }
 
-a, .btn-link {
-    color: #0071c1;
-}
-
-.btn-primary {
-    color: #fff;
-    background-color: #1b6ec2;
-    border-color: #1861ac;
-}
-
-.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
-}
-
-.content {
-    padding-top: 1.1rem;
-}
-
+/* --- Blazor form validation indicators --- */
 .valid.modified:not([type=checkbox]) {
     outline: 1px solid #26b050;
 }
 
 .invalid {
-    outline: 1px solid red;
+    outline: 1px solid #b50909;
 }
 
 .validation-message {
-    color: red;
+    color: #b50909;
 }
 
+/* --- Blazor error UI --- */
 #blazor-error-ui {
     background: lightyellow;
-    bottom: 0;
+  bottom: 0;
     box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
-    display: none;
+  display: none;
     left: 0;
-    padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+  padding: 0.6rem 1.25rem 0.7rem 1.25rem;
     position: fixed;
     width: 100%;
     z-index: 1000;
@@ -50,7 +37,7 @@ a, .btn-link {
 
     #blazor-error-ui .dismiss {
         cursor: pointer;
-        position: absolute;
+  position: absolute;
         right: 0.75rem;
         top: 0.5rem;
     }
@@ -62,9 +49,10 @@ a, .btn-link {
 }
 
     .blazor-error-boundary::after {
-        content: "An error has occurred."
+   content: "An error has occurred."
     }
 
+/* --- Blazor loading spinner --- */
 .loading-progress {
     position: relative;
     display: block;
@@ -76,28 +64,24 @@ a, .btn-link {
     .loading-progress circle {
         fill: none;
         stroke: #e0e0e0;
-        stroke-width: 0.6rem;
+      stroke-width: 0.6rem;
         transform-origin: 50% 50%;
         transform: rotate(-90deg);
     }
 
         .loading-progress circle:last-child {
-            stroke: #1b6ec2;
-            stroke-dasharray: calc(3.141 * var(--blazor-load-percentage, 0%) * 0.8), 500%;
+        stroke: #005ea2; /* USWDS primary blue */
+         stroke-dasharray: calc(3.141 * var(--blazor-load-percentage, 0%) * 0.8), 500%;
             transition: stroke-dasharray 0.05s ease-in-out;
-        }
+    }
 
 .loading-progress-text {
     position: absolute;
-    text-align: center;
+  text-align: center;
     font-weight: bold;
     inset: calc(20vh + 3.25rem) 0 auto 0.2rem;
 }
 
     .loading-progress-text:after {
-        content: var(--blazor-load-percentage-text, "Loading");
+    content: var(--blazor-load-percentage-text, "Loading");
     }
-
-code {
-    color: #c02d76;
-}
