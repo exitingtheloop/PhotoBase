@@ -11840,7 +11840,7 @@ html.usa-js-loading .usa-nav__submenu.usa-megamenu {
     }
 
     .usa-nav__primary button[aria-expanded=true] span::after {
-        right: 0.75rem;
+        /*right: 0.75rem;*/
         background-color: white;
     }
 }
