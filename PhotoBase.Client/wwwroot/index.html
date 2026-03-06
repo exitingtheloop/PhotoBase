@@ -10,7 +10,8 @@
     <link rel="stylesheet" href="css/app.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
     <link href="PhotoBase.Client.styles.css" rel="stylesheet" />
-    <link rel="stylesheet" href="uswds-custom/dist/uswds-custom.css" />
+    <!-- USWDS v3.13.0 compiled CSS (replaces v2 uswds-custom.css) -->
+    <link rel="stylesheet" href="uswds-custom/dist/styles.css" />
     <script src="uswds/js/uswds-init.min.js"></script>
 </head>
 
@@ -37,7 +38,7 @@
             s.src = '/uswds/js/uswds.min.js';
             document.body.appendChild(s);
             window.uswdsScriptLoaded = true;
-            console.log("USWDS loaded via Blazor");
+            console.log("USWDS v3 loaded via Blazor");
         };
     </script>
 </body>
