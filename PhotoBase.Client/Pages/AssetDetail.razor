@@ -126,11 +126,22 @@
                     <div class="margin-top-3">
                         <AuthorizeView Roles="@AppRoles.Authenticated">
                             <Authorized>
-                                <a href="@($"api/assets/{_asset.Id}/download")"
-                                   class="usa-button margin-top-2"
-                                   download>
-                                    Download Original
-                                </a>
+                                @if (_downloading)
+                                {
+                                    <button class="usa-button margin-top-2" disabled>
+                                        Downloading…
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button class="usa-button margin-top-2" @onclick="HandleDownload">
+                                        Download Original
+                                    </button>
+                                }
+                                @if (_downloadError is not null)
+                                {
+                                    <UsaAlert Type="error" Slim="true">@_downloadError</UsaAlert>
+                                }
                             </Authorized>
                             <NotAuthorized>
                                 <UsaAlert Type="info" Slim="true" NoIcon="false">
@@ -154,6 +165,8 @@
     private AssetDetailDto? _asset;
     private bool _loading = true;
     private string? _error;
+    private bool _downloading;
+    private string? _downloadError;
 
     protected override async Task OnInitializedAsync()
     {
@@ -181,4 +194,30 @@
     }
 
     private async Task RetryLoad() => await LoadAsync();
+
+    private async Task HandleDownload()
+    {
+        _downloading = true;
+        _downloadError = null;
+        StateHasChanged();
+
+        try
+        {
+            var (bytes, fileName, contentType) = await Api.DownloadOriginalAsync(Id);
+            // Trigger browser download via JS interop
+            await JS.InvokeVoidAsync("downloadFileFromBytes", fileName, contentType, bytes);
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            _downloadError = "Your session has expired. Please sign in again.";
+        }
+        catch (Exception ex)
+        {
+            _downloadError = $"Download failed: {ex.Message}";
+        }
+        finally
+        {
+            _downloading = false;
+        }
+    }
 }

@@ -1,13 +1,215 @@
-@page "/upload"
+﻿@page "/upload"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = AppRoles.Admin)]
+@inject ApiClient Api
+@inject NavigationManager Nav
 
-<PageTitle>Upload � PhotoBase</PageTitle>
+<PageTitle>Upload Image — PhotoBase</PageTitle>
 
 <section class="usa-section">
     <div class="grid-container">
         <h1 class="font-heading-xl margin-top-0">Upload Image</h1>
-        <UsaAlert Type="info" Heading="Coming soon">
-            Image upload will be available after authentication is enabled.
-            You'll be able to upload plant photos with metadata and link them to accession records.
-        </UsaAlert>
+        <p class="usa-intro">Upload a plant photograph with metadata. The server will auto-fill location from the plant record if an accession number matches.</p>
+
+        @if (_success is not null)
+        {
+            <UsaAlert Type="success" Heading="Upload successful">
+                <span>@_success</span>
+                <a href="/gallery/@_uploadedId" class="usa-link margin-left-1">View asset →</a>
+            </UsaAlert>
+        }
+
+        @if (_error is not null)
+        {
+            <UsaAlert Type="error" Heading="Upload failed">@_error</UsaAlert>
+
+            @if (_isDuplicate)
+            {
+                <button class="usa-button usa-button--secondary margin-top-1" @onclick="ResubmitWithForce">
+                    Upload anyway (override duplicate)
+                </button>
+            }
+        }
+
+        <form class="usa-form usa-form--large" @onsubmit="HandleUpload" @onsubmit:preventDefault>
+
+            <!-- File picker -->
+            <div class="usa-form-group @(_submitted && _file is null ? "usa-form-group--error" : "")">
+                <label class="usa-label" for="upload-file">
+                    Image file <abbr title="required" class="usa-hint usa-hint--required">*</abbr>
+                </label>
+                <span class="usa-hint" id="upload-file-hint">
+                    Accepted: JPG, PNG, TIFF, BMP, WebP. Max 50 MB.
+                </span>
+                @if (_submitted && _file is null)
+                {
+                    <span class="usa-error-message" role="alert">Please select an image file.</span>
+                }
+                <InputFile id="upload-file"
+                           class="usa-file-input"
+                           aria-describedby="upload-file-hint"
+                           OnChange="HandleFileSelected"
+                           accept=".jpg,.jpeg,.png,.tif,.tiff,.bmp,.webp" />
+            </div>
+
+            <!-- Title -->
+            <UsaFormGroup Label="Title" InputId="upload-title"
+                          HasError="_submitted && string.IsNullOrWhiteSpace(_title)"
+                          ErrorMessage="Title is required">
+                <input class="usa-input @(_submitted && string.IsNullOrWhiteSpace(_title) ? "usa-input--error" : "")"
+                       id="upload-title" type="text" @bind="_title" required maxlength="300" />
+            </UsaFormGroup>
+
+            <!-- Accession Number -->
+            <UsaFormGroup Label="Accession Number" InputId="upload-accession"
+                          Hint="If a matching plant record exists, location will auto-fill.">
+                <input class="usa-input" id="upload-accession" type="text"
+                       @bind="_accessionNumber" maxlength="50" />
+            </UsaFormGroup>
+
+            <!-- Keywords -->
+            <UsaFormGroup Label="Keywords" InputId="upload-keywords"
+                          Hint="Comma-separated: magnolia, flower, spring">
+                <input class="usa-input" id="upload-keywords" type="text"
+                       @bind="_keywords" maxlength="1000" />
+            </UsaFormGroup>
+
+            <!-- Location -->
+            <UsaFormGroup Label="Location" InputId="upload-location"
+                          Hint="Leave blank to auto-fill from plant record.">
+                <input class="usa-input" id="upload-location" type="text"
+                       @bind="_location" maxlength="200" />
+            </UsaFormGroup>
+
+            <!-- Photographer -->
+            <UsaFormGroup Label="Photographer" InputId="upload-photographer">
+                <input class="usa-input" id="upload-photographer" type="text"
+                       @bind="_photographer" maxlength="150" />
+            </UsaFormGroup>
+
+            <!-- Date Taken -->
+            <UsaFormGroup Label="Date Taken" InputId="upload-date">
+                <input class="usa-input" id="upload-date" type="date"
+                       @bind="_dateTaken" />
+            </UsaFormGroup>
+
+            <!-- Categories -->
+            <UsaFormGroup Label="Categories" InputId="upload-categories"
+                          Hint="Comma-separated: flower, leaf, landscape">
+                <input class="usa-input" id="upload-categories" type="text"
+                       @bind="_categories" maxlength="500" />
+            </UsaFormGroup>
+
+            <!-- Submit -->
+            <button type="submit" class="usa-button margin-top-3" disabled="@_uploading">
+                @(_uploading ? "Uploading…" : "Upload image")
+            </button>
+        </form>
     </div>
 </section>
+
+@code {
+    private IBrowserFile? _file;
+    private string _title = "";
+    private string _accessionNumber = "";
+    private string _keywords = "";
+    private string _location = "";
+    private string _photographer = "";
+    private DateTime? _dateTaken;
+    private string _categories = "";
+
+    private bool _submitted;
+    private bool _uploading;
+    private string? _error;
+    private string? _success;
+    private bool _isDuplicate;
+    private Guid? _uploadedId;
+
+    private void HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        _file = e.File;
+        _error = null;
+        _success = null;
+    }
+
+    private async Task HandleUpload()
+    {
+        await SubmitUpload(forceOverride: false);
+    }
+
+    private async Task ResubmitWithForce()
+    {
+        await SubmitUpload(forceOverride: true);
+    }
+
+    private async Task SubmitUpload(bool forceOverride)
+    {
+        _submitted = true;
+        _error = null;
+        _success = null;
+        _isDuplicate = false;
+
+        if (_file is null || string.IsNullOrWhiteSpace(_title))
+            return;
+
+        _uploading = true;
+        StateHasChanged();
+
+        try
+        {
+            using var stream = _file.OpenReadStream(maxAllowedSize: 50 * 1024 * 1024);
+
+            var response = await Api.UploadAssetAsync(
+             stream, _file.Name, _title.Trim(),
+        accessionNumber: NullIfEmpty(_accessionNumber),
+       keywords: NullIfEmpty(_keywords),
+   location: NullIfEmpty(_location),
+        photographer: NullIfEmpty(_photographer),
+      dateTaken: _dateTaken,
+            categories: NullIfEmpty(_categories),
+      forceOverrideDuplicate: forceOverride);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var detail = await response.Content.ReadFromJsonAsync<AssetDetailDto>();
+                _uploadedId = detail?.Id;
+                _success = $"\"{detail?.Title}\" uploaded successfully.";
+                ResetForm();
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                _isDuplicate = true;
+                _error = "A file with identical content already exists. You can override this check.";
+            }
+            else
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                _error = $"Server returned {(int)response.StatusCode}: {body}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = $"Upload failed: {ex.Message}";
+        }
+        finally
+        {
+            _uploading = false;
+        }
+    }
+
+    private void ResetForm()
+    {
+        _file = null;
+        _title = "";
+        _accessionNumber = "";
+        _keywords = "";
+        _location = "";
+        _photographer = "";
+        _dateTaken = null;
+        _categories = "";
+        _submitted = false;
+    }
+
+    private static string? NullIfEmpty(string? s) =>
+   string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+}

@@ -40,6 +40,19 @@
             window.uswdsScriptLoaded = true;
             console.log("USWDS v3 loaded via Blazor");
         };
+
+        // Trigger a browser file download from a byte array passed by Blazor
+        window.downloadFileFromBytes = function (fileName, contentType, bytes) {
+            var blob = new Blob([new Uint8Array(bytes)], { type: contentType });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        };
     </script>
 </body>
 

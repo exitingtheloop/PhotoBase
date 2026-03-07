@@ -1,13 +1,193 @@
-@page "/import"
+﻿@page "/import"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = AppRoles.Admin)]
+@inject ApiClient Api
 
-<PageTitle>Import Plant Records � PhotoBase</PageTitle>
+<PageTitle>Import Plant Records — PhotoBase</PageTitle>
 
 <section class="usa-section">
     <div class="grid-container">
         <h1 class="font-heading-xl margin-top-0">Import Plant Records</h1>
-        <UsaAlert Type="info" Heading="Coming soon">
-            TSV plant record import will be available after authentication is enabled.
-            Administrators will be able to upload tab-separated files to create or update plant records in bulk.
-        </UsaAlert>
+        <p class="usa-intro">
+            Upload a tab-separated (TSV) file to create or update plant records in bulk.
+            Records are matched by Accession Number — existing records are updated, new ones are created.
+        </p>
+
+        @* ── Results ─────────────────────────────── *@
+        @if (_summary is not null)
+        {
+            @if (_summary.Errors == 0)
+            {
+                <UsaAlert Type="success" Heading="Import complete">
+                    Imported <strong>@_summary.Imported</strong> new records,
+                    updated <strong>@_summary.Updated</strong> existing records.
+                    No errors.
+                </UsaAlert>
+            }
+            else
+            {
+                <UsaAlert Type="warning" Heading="Import completed with errors">
+                    Imported <strong>@_summary.Imported</strong>, updated <strong>@_summary.Updated</strong>,
+                    <strong>@_summary.Errors</strong> errors.
+                </UsaAlert>
+            }
+
+            @if (_summary.ErrorDetails.Count > 0)
+            {
+                <div class="margin-top-2">
+                    <h3 class="font-heading-md">Error details</h3>
+                    <table class="usa-table usa-table--striped width-full">
+                        <thead>
+                            <tr>
+                                <th scope="col">#</th>
+                                <th scope="col">Detail</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var (detail, idx) in _summary.ErrorDetails.Select((d, i) => (d, i)))
+                            {
+                                <tr>
+                                    <td>@(idx + 1)</td>
+                                    <td>@detail</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+
+        @if (_error is not null)
+        {
+            <UsaAlert Type="error" Heading="Import failed">@_error</UsaAlert>
+        }
+
+        @* ── Format guide ───────────────────────── *@
+        <div class="usa-accordion margin-top-3 margin-bottom-3">
+            <h4 class="usa-accordion__heading">
+                <button type="button" class="usa-accordion__button" aria-expanded="false"
+                        aria-controls="format-guide">
+                    TSV format guide
+                </button>
+            </h4>
+            <div id="format-guide" class="usa-accordion__content usa-prose" hidden>
+                <p>The file must be tab-separated with a header row. Required columns:</p>
+                <table class="usa-table usa-table--compact">
+                    <thead>
+                        <tr>
+                            <th>Column</th>
+                            <th>Required</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>AccessionNumber</code></td>
+                            <td>Yes</td>
+                            <td>Unique identifier for the plant</td>
+                        </tr>
+                        <tr>
+                            <td><code>PlantName</code></td>
+                            <td>Yes</td>
+                            <td>Scientific or common name</td>
+                        </tr>
+                        <tr>
+                            <td><code>Location</code></td>
+                            <td>Yes</td>
+                            <td>Garden location</td>
+                        </tr>
+                        <tr>
+                            <td><code>CollectionTrip</code></td>
+                            <td>No</td>
+                            <td>Origin collection trip</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <p class="margin-top-1">
+                    <strong>Example:</strong>
+                </p>
+                <pre class="font-mono-xs bg-base-lightest padding-1 radius-sm">AccessionNumber&#9;PlantName&#9;Location&#9;CollectionTrip
+2024-0001&#9;Magnolia zenii&#9;Garden A - Section 3&#9;Spring 2024 East Asia
+2024-0002&#9;Quercus alba&#9;Garden B - Oak Collection&#9;</pre>
+            </div>
+        </div>
+
+        @* ── File picker + submit ────────────────── *@
+        <form class="usa-form" @onsubmit="HandleImport" @onsubmit:preventDefault>
+            <div class="usa-form-group @(_submitted && _file is null ? "usa-form-group--error" : "")">
+                <label class="usa-label" for="import-file">
+                    TSV file <abbr title="required" class="usa-hint usa-hint--required">*</abbr>
+                </label>
+                <span class="usa-hint" id="import-file-hint">
+                    Accepted: .tsv, .txt, .tab — max 10 MB.
+                </span>
+                @if (_submitted && _file is null)
+                {
+                    <span class="usa-error-message" role="alert">Please select a file.</span>
+                }
+                <InputFile id="import-file"
+                           class="usa-file-input"
+                           aria-describedby="import-file-hint"
+                           OnChange="HandleFileSelected"
+                           accept=".tsv,.txt,.tab" />
+            </div>
+
+            <button type="submit" class="usa-button margin-top-2" disabled="@_importing">
+                @(_importing ? "Importing…" : "Import records")
+            </button>
+        </form>
     </div>
 </section>
+
+@code {
+    private IBrowserFile? _file;
+    private ImportSummaryDto? _summary;
+    private string? _error;
+    private bool _submitted;
+    private bool _importing;
+
+    private void HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        _file = e.File;
+        _error = null;
+        _summary = null;
+    }
+
+    private async Task HandleImport()
+    {
+        _submitted = true;
+        _error = null;
+        _summary = null;
+
+        if (_file is null) return;
+
+        _importing = true;
+        StateHasChanged();
+
+        try
+        {
+            using var stream = _file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+
+            var response = await Api.ImportPlantRecordsAsync(stream, _file.Name);
+
+            if (response.IsSuccessStatusCode)
+            {
+                _summary = await response.Content.ReadFromJsonAsync<ImportSummaryDto>();
+                _file = null;
+                _submitted = false;
+            }
+            else
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                _error = $"Server returned {(int)response.StatusCode}: {body}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = $"Import failed: {ex.Message}";
+        }
+        finally
+        {
+            _importing = false;
+        }
+    }
+}
