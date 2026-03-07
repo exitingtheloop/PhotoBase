@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using PhotoBase.API.Configuration;
 using PhotoBase.API.Data;
+using PhotoBase.API.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -8,6 +10,15 @@ var builder = WebApplication.CreateBuilder(args);
 // EF Core — SQL Server (ADR-0001 updated to SQL Server per user request)
 builder.Services.AddDbContext<PhotoBaseDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("PhotoBaseDb")));
+
+// Configuration options
+builder.Services.Configure<StorageOptions>(builder.Configuration.GetSection(StorageOptions.SectionName));
+builder.Services.Configure<UploadOptions>(builder.Configuration.GetSection(UploadOptions.SectionName));
+
+// Application services
+builder.Services.AddSingleton<IHashService, Sha256HashService>();
+builder.Services.AddSingleton<IFileStorage, LocalFileStorage>();
+builder.Services.AddSingleton<IThumbnailService, ImageSharpThumbnailService>();
 
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
