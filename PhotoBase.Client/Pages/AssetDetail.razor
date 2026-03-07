@@ -1,22 +1,27 @@
-@page "/gallery/{Id:guid}"
+﻿@page "/gallery/{Id:guid}"
 @inject ApiClient Api
 @inject NavigationManager Nav
 
-<PageTitle>@(_asset?.Title ?? "Asset Detail") � PhotoBase</PageTitle>
+<PageTitle>@(_asset?.Title ?? "Asset Detail") — PhotoBase</PageTitle>
 
 <section class="usa-section">
     <div class="grid-container">
 
         @* Back link *@
         <a href="/gallery" class="usa-link display-inline-block margin-bottom-3">
-            ? Back to Gallery
+            ← Back to Gallery
         </a>
 
         @if (_loading)
         {
-            <div class="display-flex flex-justify-center padding-y-6">
-                <p class="text-base">Loading�</p>
-            </div>
+            <UsaSpinner Message="Loading asset details…" />
+        }
+        else if (_error is not null)
+        {
+            <UsaAlert Type="error" Heading="Error loading asset">@_error</UsaAlert>
+            <button class="usa-button usa-button--outline margin-top-2" @onclick="RetryLoad">
+                Try again
+            </button>
         }
         else if (_asset is null)
         {
@@ -32,6 +37,7 @@
                     <img src="@_asset.ThumbUrl"
                          alt="@_asset.Title"
                          class="width-full radius-md"
+                         onerror="this.onerror=null;this.src='/uswds-custom/img/circle-124.png';"
                          style="max-height:500px; object-fit:contain; background:#f0f0f0;" />
                 </div>
 
@@ -135,11 +141,32 @@
 
     private AssetDetailDto? _asset;
     private bool _loading = true;
+    private string? _error;
 
     protected override async Task OnInitializedAsync()
     {
-        _loading = true;
-        _asset = await Api.GetAssetAsync(Id);
-        _loading = false;
+        await LoadAsync();
     }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        StateHasChanged();
+
+        try
+        {
+            _asset = await Api.GetAssetAsync(Id);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task RetryLoad() => await LoadAsync();
 }

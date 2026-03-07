@@ -1,0 +1,39 @@
+@* Loading spinner styled to USWDS conventions.
+   USWDS has no spinner component, so this follows their utility class patterns. *@
+
+<div class="display-flex flex-column flex-align-center flex-justify-center padding-y-@Padding"
+     role="status" aria-label="@Label">
+    <div class="photobase-spinner" aria-hidden="true"></div>
+    @if (!string.IsNullOrEmpty(Message))
+    {
+        <p class="text-base margin-top-2">@Message</p>
+    }
+</div>
+
+<style>
+    .photobase-spinner {
+        width: 2.5rem;
+        height: 2.5rem;
+        border: 0.25rem solid #dfe1e2; /* USWDS base-lighter */
+        border-top-color: #005ea2; /* USWDS primary */
+        border-radius: 50%;
+        animation: photobase-spin 0.8s linear infinite;
+    }
+
+    @@keyframes photobase-spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+</style>
+
+@code {
+    /// <summary>Accessible label for screen readers.</summary>
+    [Parameter] public string Label { get; set; } = "Loading";
+
+    /// <summary>Visible text below the spinner.</summary>
+    [Parameter] public string? Message { get; set; } = "Loading…";
+
+    /// <summary>Vertical padding units (USWDS scale, e.g. 4 = padding-y-4).</summary>
+    [Parameter] public int Padding { get; set; } = 6;
+}

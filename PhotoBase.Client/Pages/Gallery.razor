@@ -10,26 +10,41 @@
 
         <!-- Search bar -->
         <div class="margin-bottom-4">
-            <UsaSearch Size="big"
-                       InputId="gallery-search"
-                       Placeholder="Search by plant name, accession, keyword, location…"
-                       AriaLabel="Search the gallery"
-                       Label="Search the gallery"
-                       SearchTerm="@_query"
-                       SearchTermChanged="val => _query = val"
-                       OnSearch="HandleSearch" />
+            <div class="display-flex flex-align-end grid-gap-1">
+                <div class="flex-fill">
+                    <UsaSearch Size="big"
+                               InputId="gallery-search"
+                               Placeholder="Search by plant name, accession, keyword, location…"
+                               AriaLabel="Search the gallery"
+                               Label="Search the gallery"
+                               SearchTerm="@_query"
+                               SearchTermChanged="val => _query = val"
+                               OnSearch="HandleSearch" />
+                </div>
+                @if (!string.IsNullOrWhiteSpace(_query))
+                {
+                    <button type="button"
+                            class="usa-button usa-button--unstyled text-no-wrap margin-left-1"
+                            @onclick="ClearSearch">
+                        Clear search
+                    </button>
+                }
+            </div>
         </div>
 
         <!-- Status / results -->
         @if (_loading)
         {
-            <div class="display-flex flex-justify-center padding-y-6">
-                <p class="text-base">Loading…</p>
-            </div>
+            <UsaSpinner Message="Searching the collection…" />
         }
         else if (_error is not null)
         {
-            <UsaAlert Type="error" Heading="Error loading gallery">@_error</UsaAlert>
+            <UsaAlert Type="error" Heading="Something went wrong">
+                @_error
+            </UsaAlert>
+            <button class="usa-button usa-button--outline margin-top-2" @onclick="RetryLoad">
+                Try again
+            </button>
         }
         else if (_result is not null && _result.Items.Count == 0)
         {
@@ -68,6 +83,7 @@
                                         <img src="@asset.ThumbUrl"
                                              alt="@asset.Title"
                                              loading="lazy"
+                                             onerror="this.onerror=null;this.src='/uswds-custom/img/circle-124.png';"
                                              style="width:100%; height:200px; object-fit:cover;" />
                                     </a>
                                 </div>
@@ -135,6 +151,16 @@
         UpdateUrl();
         await LoadAsync();
     }
+
+    private async Task ClearSearch()
+    {
+        _query = "";
+        _page = 1;
+        UpdateUrl();
+        await LoadAsync();
+    }
+
+    private async Task RetryLoad() => await LoadAsync();
 
     private async Task HandlePageChanged(int page)
     {
