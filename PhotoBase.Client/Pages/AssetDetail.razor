@@ -1,6 +1,7 @@
 ﻿@page "/gallery/{Id:guid}"
 @inject ApiClient Api
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <PageTitle>@(_asset?.Title ?? "Asset Detail") — PhotoBase</PageTitle>
 
@@ -123,12 +124,23 @@
 
                     <!-- Download gated message -->
                     <div class="margin-top-3">
-                        <UsaAlert Type="info" Slim="true" NoIcon="false">
-                            Log in to download the original high-resolution image.
-                        </UsaAlert>
-                        <button class="usa-button usa-button--outline margin-top-2" disabled>
-                            Download Original
-                        </button>
+                        <AuthorizeView Roles="@AppRoles.Authenticated">
+                            <Authorized>
+                                <a href="@($"api/assets/{_asset.Id}/download")"
+                                   class="usa-button margin-top-2"
+                                   download>
+                                    Download Original
+                                </a>
+                            </Authorized>
+                            <NotAuthorized>
+                                <UsaAlert Type="info" Slim="true" NoIcon="false">
+                                    Log in to download the original high-resolution image.
+                                </UsaAlert>
+                                <a href="/login" class="usa-button usa-button--outline margin-top-2">
+                                    Sign in to download
+                                </a>
+                            </NotAuthorized>
+                        </AuthorizeView>
                     </div>
                 </div>
             </div>

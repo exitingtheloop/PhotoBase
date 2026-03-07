@@ -51,27 +51,57 @@
                         <span>Gallery</span>
                     </a>
                 </li>
-                <li class="usa-nav__primary-item">
-                    <a href="/upload" class="usa-nav__link">
-                        <span>Upload</span>
-                    </a>
-                </li>
-                <li class="usa-nav__primary-item">
-                    <a href="/import" class="usa-nav__link">
-                        <span>Import</span>
-                    </a>
-                </li>
+                <AuthorizeView Roles="@AppRoles.Admin">
+                    <li class="usa-nav__primary-item">
+                        <a href="/upload" class="usa-nav__link">
+                            <span>Upload</span>
+                        </a>
+                    </li>
+                    <li class="usa-nav__primary-item">
+                        <a href="/import" class="usa-nav__link">
+                            <span>Import</span>
+                        </a>
+                    </li>
+                </AuthorizeView>
             </ul>
+            <div class="usa-nav__secondary">
+                <ul class="usa-nav__secondary-links">
+                    <AuthorizeView>
+                        <Authorized>
+                            <li class="usa-nav__secondary-item">
+                                <span class="text-base-dark">@context.User.FindFirst(AppClaims.Email)?.Value</span>
+                            </li>
+                            <li class="usa-nav__secondary-item">
+                                <a href="javascript:void(0)" @onclick="HandleLogout" class="usa-link">Sign out</a>
+                            </li>
+                        </Authorized>
+                        <NotAuthorized>
+                            <li class="usa-nav__secondary-item">
+                                <a href="/login" class="usa-link">Sign in</a>
+                            </li>
+                        </NotAuthorized>
+                    </AuthorizeView>
+                </ul>
+            </div>
         </div>
     </nav>
 </header>
 
 @code {
+    [Inject] private AuthService Auth { get; set; } = default!;
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             await JS.InvokeVoidAsync("loadUSWDS");
         }
+    }
+
+    private async Task HandleLogout()
+    {
+        await Auth.LogoutAsync();
+        Nav.NavigateTo("/", forceLoad: false);
     }
 }

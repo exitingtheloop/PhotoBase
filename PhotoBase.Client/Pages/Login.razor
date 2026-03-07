@@ -1,0 +1,106 @@
+@page "/login"
+@inject AuthService Auth
+@inject NavigationManager Nav
+
+<PageTitle>Login — PhotoBase</PageTitle>
+
+<section class="usa-section">
+    <div class="grid-container">
+        <div class="grid-row grid-gap flex-justify-center">
+            <div class="tablet:grid-col-6 desktop:grid-col-4">
+                <h1 class="font-heading-xl margin-top-0">Sign in</h1>
+
+                @if (!string.IsNullOrEmpty(_error))
+                {
+                    <UsaAlert Type="error" Slim="true">@_error</UsaAlert>
+                }
+
+                <form class="usa-form usa-form--large" @onsubmit="HandleLogin" @onsubmit:preventDefault>
+                    <UsaFormGroup Label="Email address" InputId="login-email"
+                                  HasError="_submitted && string.IsNullOrWhiteSpace(_email)"
+                                  ErrorMessage="Email is required">
+                        <input class="usa-input @(_submitted && string.IsNullOrWhiteSpace(_email) ? "usa-input--error" : "")"
+                               id="login-email"
+                               type="email"
+                               name="email"
+                               autocomplete="email"
+                               required
+                               @bind="_email" />
+                    </UsaFormGroup>
+
+                    <UsaFormGroup Label="Password" InputId="login-password"
+                                  HasError="_submitted && string.IsNullOrWhiteSpace(_password)"
+                                  ErrorMessage="Password is required">
+                        <input class="usa-input @(_submitted && string.IsNullOrWhiteSpace(_password) ? "usa-input--error" : "")"
+                               id="login-password"
+                               type="password"
+                               name="password"
+                               autocomplete="current-password"
+                               required
+                               @bind="_password" />
+                    </UsaFormGroup>
+
+                    <button type="submit" class="usa-button margin-top-2" disabled="@_loading">
+                        @if (_loading)
+                        {
+                            <span>Signing in…</span>
+                        }
+                        else
+                        {
+                            <span>Sign in</span>
+                        }
+                    </button>
+                </form>
+
+                <div class="margin-top-4 padding-top-2 border-top-1px border-base-lighter">
+                    <p class="text-base font-body-2xs">
+                        <strong>Development credentials:</strong><br />
+                        Admin: <code>admin@photobase.dev</code> / <code>Admin123!</code><br />
+                        Internal: <code>user@photobase.dev</code> / <code>User123!</code>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+@code {
+    private string _email = "";
+    private string _password = "";
+    private string? _error;
+    private bool _loading;
+    private bool _submitted;
+
+    private async Task HandleLogin()
+    {
+        _submitted = true;
+        _error = null;
+
+        if (string.IsNullOrWhiteSpace(_email) || string.IsNullOrWhiteSpace(_password))
+            return;
+
+        _loading = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await Auth.LoginAsync(_email, _password);
+            if (result is not null)
+            {
+                Nav.NavigateTo("/gallery", forceLoad: false);
+            }
+            else
+            {
+                _error = "Invalid email or password.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = $"Login failed: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}
