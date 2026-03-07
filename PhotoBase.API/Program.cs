@@ -19,6 +19,7 @@ builder.Services.Configure<UploadOptions>(builder.Configuration.GetSection(Uploa
 builder.Services.AddSingleton<IHashService, Sha256HashService>();
 builder.Services.AddSingleton<IFileStorage, LocalFileStorage>();
 builder.Services.AddSingleton<IThumbnailService, ImageSharpThumbnailService>();
+builder.Services.AddScoped<TsvImportService>();
 
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
