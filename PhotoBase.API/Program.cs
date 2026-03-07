@@ -58,3 +58,6 @@ app.MapControllers();
 app.MapFallbackToFile("index.html");
 
 app.Run();
+
+// Make the implicit Program class visible to WebApplicationFactory
+public partial class Program { }

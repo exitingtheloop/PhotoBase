@@ -30,10 +30,11 @@ public class PhotoBaseDbContext : DbContext
             e.ToTable("ImageAssets");
   e.HasKey(a => a.Id);
 
-        // Unique index on SHA-256 hash for duplicate detection (ADR-0005)
+            // Index on SHA-256 hash for duplicate detection (ADR-0005)
+            // Non-unique: dedup is enforced at the application level via controller check.
+            // ForceOverrideDuplicate allows intentional re-uploads of identical files.
         e.HasIndex(a => a.HashSha256)
-     .IsUnique()
-             .HasDatabaseName("IX_ImageAssets_HashSha256");
+           .HasDatabaseName("IX_ImageAssets_HashSha256");
 
             // Index on AccessionNumber for search joins
       e.HasIndex(a => a.AccessionNumber)
