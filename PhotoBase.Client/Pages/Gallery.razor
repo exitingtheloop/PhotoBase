@@ -1,0 +1,179 @@
+@page "/gallery"
+@inject ApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Gallery — PhotoBase</PageTitle>
+
+<section class="usa-section">
+    <div class="grid-container">
+        <h1 class="font-heading-xl margin-top-0">Gallery</h1>
+
+        <!-- Search bar -->
+        <div class="margin-bottom-4">
+            <UsaSearch Size="big"
+                       InputId="gallery-search"
+                       Placeholder="Search by plant name, accession, keyword, location…"
+                       AriaLabel="Search the gallery"
+                       Label="Search the gallery"
+                       SearchTerm="@_query"
+                       SearchTermChanged="val => _query = val"
+                       OnSearch="HandleSearch" />
+        </div>
+
+        <!-- Status / results -->
+        @if (_loading)
+        {
+            <div class="display-flex flex-justify-center padding-y-6">
+                <p class="text-base">Loading…</p>
+            </div>
+        }
+        else if (_error is not null)
+        {
+            <UsaAlert Type="error" Heading="Error loading gallery">@_error</UsaAlert>
+        }
+        else if (_result is not null && _result.Items.Count == 0)
+        {
+            <UsaAlert Type="info" Heading="No results">
+                @if (string.IsNullOrWhiteSpace(_query))
+                {
+                    <span>The gallery is empty. Upload some images to get started.</span>
+                }
+                else
+                {
+                    <span>No assets match "<strong>@_query</strong>". Try a different search term.</span>
+                }
+            </UsaAlert>
+        }
+        else if (_result is not null)
+        {
+            <!-- Result count -->
+            <p class="text-base margin-bottom-2">
+                Showing @((_result.Page - 1) * _result.PageSize + 1)–@(Math.Min(_result.Page * _result.PageSize, _result.TotalCount))
+                of @_result.TotalCount results
+                @if (!string.IsNullOrWhiteSpace(_query))
+                {
+                    <span> for "<strong>@_query</strong>"</span>
+                }
+            </p>
+
+            <!-- Card grid -->
+            <ul class="usa-card-group">
+                @foreach (var asset in _result.Items)
+                {
+                    <li class="usa-card tablet:grid-col-4 margin-bottom-3">
+                        <div class="usa-card__container">
+                            <div class="usa-card__media">
+                                <div class="usa-card__img">
+                                    <a href="/gallery/@asset.Id" aria-label="View @asset.Title">
+                                        <img src="@asset.ThumbUrl"
+                                             alt="@asset.Title"
+                                             loading="lazy"
+                                             style="width:100%; height:200px; object-fit:cover;" />
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="usa-card__body">
+                                <h3 class="usa-card__heading">
+                                    <a href="/gallery/@asset.Id" class="usa-link">
+                                        @asset.Title
+                                    </a>
+                                </h3>
+                                @if (!string.IsNullOrEmpty(asset.PlantName))
+                                {
+                                    <p class="margin-top-05 margin-bottom-05">
+                                        <strong>@asset.PlantName</strong>
+                                    </p>
+                                }
+                                @if (!string.IsNullOrEmpty(asset.AccessionNumber))
+                                {
+                                    <p class="text-base margin-top-0 margin-bottom-0">
+                                        Accession: @asset.AccessionNumber
+                                    </p>
+                                }
+                                @if (!string.IsNullOrEmpty(asset.Location))
+                                {
+                                    <p class="text-base margin-top-0">@asset.Location</p>
+                                }
+                            </div>
+                        </div>
+                    </li>
+                }
+            </ul>
+
+            <!-- Pagination -->
+            <UsaPagination CurrentPage="_result.Page"
+                           TotalPages="_result.TotalPages"
+                           OnPageChanged="HandlePageChanged" />
+        }
+    </div>
+</section>
+
+@code {
+    private string _query = "";
+    private int _page = 1;
+    private const int PageSize = 12;
+    private PagedResult<AssetListItemDto>? _result;
+    private bool _loading;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Check for query param in URL
+        var uri = new Uri(Nav.Uri);
+        var qs = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        _query = qs["query"] ?? "";
+        if (int.TryParse(qs["page"], out var p) && p > 0)
+            _page = p;
+
+        await LoadAsync();
+    }
+
+    private async Task HandleSearch(string term)
+    {
+        _query = term;
+        _page = 1;
+        UpdateUrl();
+        await LoadAsync();
+    }
+
+    private async Task HandlePageChanged(int page)
+    {
+        _page = page;
+        UpdateUrl();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        StateHasChanged();
+
+        try
+        {
+            _result = await Api.SearchAssetsAsync(_query, _page, PageSize);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void UpdateUrl()
+    {
+        var url = "/gallery";
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(_query))
+            parts.Add($"query={Uri.EscapeDataString(_query)}");
+        if (_page > 1)
+            parts.Add($"page={_page}");
+        if (parts.Count > 0)
+            url += "?" + string.Join("&", parts);
+
+        Nav.NavigateTo(url, replace: true);
+    }
+}

@@ -1,0 +1,145 @@
+@page "/gallery/{Id:guid}"
+@inject ApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>@(_asset?.Title ?? "Asset Detail") — PhotoBase</PageTitle>
+
+<section class="usa-section">
+    <div class="grid-container">
+
+        @* Back link *@
+        <a href="/gallery" class="usa-link display-inline-block margin-bottom-3">
+            ? Back to Gallery
+        </a>
+
+        @if (_loading)
+        {
+            <div class="display-flex flex-justify-center padding-y-6">
+                <p class="text-base">Loading…</p>
+            </div>
+        }
+        else if (_asset is null)
+        {
+            <UsaAlert Type="warning" Heading="Not found">
+                The requested asset could not be found.
+            </UsaAlert>
+        }
+        else
+        {
+            <div class="grid-row grid-gap-4">
+                <!-- Left: Thumbnail -->
+                <div class="tablet:grid-col-6">
+                    <img src="@_asset.ThumbUrl"
+                         alt="@_asset.Title"
+                         class="width-full radius-md"
+                         style="max-height:500px; object-fit:contain; background:#f0f0f0;" />
+                </div>
+
+                <!-- Right: Metadata -->
+                <div class="tablet:grid-col-6">
+                    <h1 class="font-heading-xl margin-top-0 margin-bottom-1">@_asset.Title</h1>
+
+                    <!-- Metadata table using USWDS table classes -->
+                    <table class="usa-table usa-table--borderless usa-table--compact width-full">
+                        <tbody>
+                            @if (!string.IsNullOrEmpty(_asset.PlantName))
+                            {
+                                <tr>
+                                    <th scope="row" class="text-no-wrap">Plant Name</th>
+                                    <td>@_asset.PlantName</td>
+                                </tr>
+                            }
+                            @if (!string.IsNullOrEmpty(_asset.AccessionNumber))
+                            {
+                                <tr>
+                                    <th scope="row" class="text-no-wrap">Accession</th>
+                                    <td>@_asset.AccessionNumber</td>
+                                </tr>
+                            }
+                            @if (!string.IsNullOrEmpty(_asset.Location))
+                            {
+                                <tr>
+                                    <th scope="row">Location</th>
+                                    <td>@_asset.Location</td>
+                                </tr>
+                            }
+                            @if (!string.IsNullOrEmpty(_asset.Photographer))
+                            {
+                                <tr>
+                                    <th scope="row">Photographer</th>
+                                    <td>@_asset.Photographer</td>
+                                </tr>
+                            }
+                            @if (_asset.DateTaken.HasValue)
+                            {
+                                <tr>
+                                    <th scope="row" class="text-no-wrap">Date Taken</th>
+                                    <td>@_asset.DateTaken.Value.ToString("MMMM d, yyyy")</td>
+                                </tr>
+                            }
+                            @if (!string.IsNullOrEmpty(_asset.Keywords))
+                            {
+                                <tr>
+                                    <th scope="row">Keywords</th>
+                                    <td>
+                                        @foreach (var kw in _asset.Keywords.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+                                        {
+                                            <span class="usa-tag margin-right-05 margin-bottom-05">@kw</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                            @if (!string.IsNullOrEmpty(_asset.Categories))
+                            {
+                                <tr>
+                                    <th scope="row">Categories</th>
+                                    <td>
+                                        @foreach (var cat in _asset.Categories.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+                                        {
+                                            <span class="usa-tag bg-accent-cool margin-right-05 margin-bottom-05">@cat</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                            @if (!string.IsNullOrEmpty(_asset.OriginalFileName))
+                            {
+                                <tr>
+                                    <th scope="row" class="text-no-wrap">File Name</th>
+                                    <td>@_asset.OriginalFileName</td>
+                                </tr>
+                            }
+                            <tr>
+                                <th scope="row">Uploaded</th>
+                                <td>@_asset.CreatedAt.ToString("MMMM d, yyyy")</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Download gated message -->
+                    <div class="margin-top-3">
+                        <UsaAlert Type="info" Slim="true" NoIcon="false">
+                            Log in to download the original high-resolution image.
+                        </UsaAlert>
+                        <button class="usa-button usa-button--outline margin-top-2" disabled>
+                            Download Original
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</section>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private AssetDetailDto? _asset;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _loading = true;
+        _asset = await Api.GetAssetAsync(Id);
+        _loading = false;
+    }
+}
