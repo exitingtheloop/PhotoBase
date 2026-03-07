@@ -1,0 +1,38 @@
+@* USWDS Form Group — https://designsystem.digital.gov/components/form/ *@
+@* Wraps a label + input with optional error state. *@
+
+<div class="usa-form-group @(HasError ? "usa-form-group--error" : "")">
+    @if (!string.IsNullOrEmpty(Label))
+    {
+        <label class="usa-label @(HasError ? "usa-label--error" : "")" for="@InputId">@Label</label>
+    }
+    @if (!string.IsNullOrEmpty(Hint))
+    {
+        <div class="usa-hint" id="@(InputId)-hint">@Hint</div>
+    }
+    @if (HasError && !string.IsNullOrEmpty(ErrorMessage))
+    {
+        <span class="usa-error-message" id="@(InputId)-error" role="alert">@ErrorMessage</span>
+    }
+    @ChildContent
+</div>
+
+@code {
+    /// <summary>The label text.</summary>
+    [Parameter] public string? Label { get; set; }
+
+    /// <summary>The id of the input element (for label association).</summary>
+    [Parameter] public string InputId { get; set; } = "";
+
+    /// <summary>Optional hint text below the label.</summary>
+    [Parameter] public string? Hint { get; set; }
+
+    /// <summary>Whether this field has a validation error.</summary>
+    [Parameter] public bool HasError { get; set; }
+
+    /// <summary>The error message to display.</summary>
+    [Parameter] public string? ErrorMessage { get; set; }
+
+    /// <summary>The input or control inside the form group.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

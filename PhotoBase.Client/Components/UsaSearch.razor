@@ -1,0 +1,54 @@
+@* USWDS Search — https://designsystem.digital.gov/components/search/ *@
+
+<section aria-label="@AriaLabel">
+    <form class="usa-search @SizeClass" role="search" @onsubmit="HandleSubmit" @onsubmit:preventDefault>
+        <label class="usa-sr-only" for="@InputId">@Label</label>
+        <input class="usa-input"
+               id="@InputId"
+               type="search"
+               name="query"
+               placeholder="@Placeholder"
+               @bind="SearchTerm"
+               @bind:event="oninput" />
+        <button class="usa-button" type="submit">
+            <span class="usa-search__submit-text">Search</span>
+        </button>
+    </form>
+</section>
+
+@code {
+    /// <summary>Accessible label for the search region.</summary>
+    [Parameter] public string AriaLabel { get; set; } = "Search";
+
+    /// <summary>Label text (visually hidden).</summary>
+    [Parameter] public string Label { get; set; } = "Search";
+
+    /// <summary>Placeholder text in the input.</summary>
+    [Parameter] public string Placeholder { get; set; } = "Search";
+
+    /// <summary>Size: default, small, big.</summary>
+    [Parameter] public string Size { get; set; } = "";
+
+    /// <summary>Unique id for the input element.</summary>
+    [Parameter] public string InputId { get; set; } = "search-field";
+
+    /// <summary>Current search term (two-way bindable).</summary>
+    [Parameter] public string SearchTerm { get; set; } = "";
+    [Parameter] public EventCallback<string> SearchTermChanged { get; set; }
+
+    /// <summary>Fired on form submit.</summary>
+    [Parameter] public EventCallback<string> OnSearch { get; set; }
+
+    private string SizeClass => Size switch
+    {
+        "small" => "usa-search--small",
+        "big" => "usa-search--big",
+        _ => ""
+    };
+
+    private async Task HandleSubmit()
+    {
+        await SearchTermChanged.InvokeAsync(SearchTerm);
+        await OnSearch.InvokeAsync(SearchTerm);
+    }
+}

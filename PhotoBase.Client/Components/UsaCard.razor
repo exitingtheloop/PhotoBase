@@ -1,0 +1,53 @@
+@* USWDS Card — https://designsystem.digital.gov/components/card/ *@
+@* Wrapper for the standard card pattern. *@
+
+<div class="usa-card @(Flag ? "usa-card--flag" : "") @CssClass">
+    <div class="usa-card__container">
+        @if (HeaderContent is not null)
+        {
+            <div class="usa-card__header">
+                @HeaderContent
+            </div>
+        }
+        @if (MediaContent is not null)
+        {
+            <div class="usa-card__media @(MediaInset ? "usa-card__media--inset" : "")">
+                <div class="usa-card__img">
+                    @MediaContent
+                </div>
+            </div>
+        }
+        <div class="usa-card__body">
+            @ChildContent
+        </div>
+        @if (FooterContent is not null)
+        {
+            <div class="usa-card__footer">
+                @FooterContent
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    /// <summary>Use the flag (horizontal) card variant.</summary>
+    [Parameter] public bool Flag { get; set; }
+
+    /// <summary>Inset the media from the card edge.</summary>
+    [Parameter] public bool MediaInset { get; set; }
+
+    /// <summary>Additional CSS classes.</summary>
+    [Parameter] public string CssClass { get; set; } = "";
+
+    /// <summary>Card header content (typically an h2/h3).</summary>
+    [Parameter] public RenderFragment? HeaderContent { get; set; }
+
+    /// <summary>Card media content (typically an img).</summary>
+    [Parameter] public RenderFragment? MediaContent { get; set; }
+
+    /// <summary>Card body content.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>Card footer content (typically a button or link).</summary>
+    [Parameter] public RenderFragment? FooterContent { get; set; }
+}

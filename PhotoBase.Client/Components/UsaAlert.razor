@@ -1,0 +1,29 @@
+@* USWDS Alert component — https://designsystem.digital.gov/components/alert/ *@
+
+<div class="usa-alert usa-alert--@Type @(Slim ? "usa-alert--slim" : "") @(NoIcon ? "usa-alert--no-icon" : "")"
+     role="@(Type is "error" or "warning" ? "alert" : "status")">
+    <div class="usa-alert__body">
+        @if (!string.IsNullOrEmpty(Heading))
+        {
+            <h4 class="usa-alert__heading">@Heading</h4>
+        }
+        <p class="usa-alert__text">@ChildContent</p>
+    </div>
+</div>
+
+@code {
+    /// <summary>Alert type: info, success, warning, error, emergency.</summary>
+    [Parameter] public string Type { get; set; } = "info";
+
+    /// <summary>Optional bold heading above the body text.</summary>
+    [Parameter] public string? Heading { get; set; }
+
+    /// <summary>Use the slim variant (reduced padding).</summary>
+    [Parameter] public bool Slim { get; set; }
+
+    /// <summary>Hide the icon.</summary>
+    [Parameter] public bool NoIcon { get; set; }
+
+    /// <summary>Alert body content.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

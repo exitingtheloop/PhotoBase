@@ -1,0 +1,84 @@
+@* USWDS Pagination — https://designsystem.digital.gov/components/pagination/ *@
+
+@if (TotalPages > 1)
+{
+    <nav aria-label="Pagination" class="usa-pagination">
+        <ul class="usa-pagination__list">
+            @if (CurrentPage > 1)
+            {
+                <li class="usa-pagination__item usa-pagination__arrow">
+                    <a href="javascript:void(0)"
+                       class="usa-pagination__link usa-pagination__previous-page"
+                       aria-label="Previous page"
+                       @onclick="() => OnPageChanged.InvokeAsync(CurrentPage - 1)">
+                        <span class="usa-pagination__link-text">Previous</span>
+                    </a>
+                </li>
+            }
+
+            @foreach (var p in GetPageNumbers())
+            {
+                @if (p == -1)
+                {
+                    <li class="usa-pagination__item usa-pagination__overflow" aria-label="ellipsis indicating non-visible pages">
+                        <span>…</span>
+                    </li>
+                }
+                else
+                {
+                    <li class="usa-pagination__item usa-pagination__page-no">
+                        <a href="javascript:void(0)"
+                           class="usa-pagination__button @(p == CurrentPage ? "usa-current" : "")"
+                           aria-label="Page @p"
+                           aria-current="@(p == CurrentPage ? "page" : null)"
+                           @onclick="() => OnPageChanged.InvokeAsync(p)">
+                            @p
+                        </a>
+                    </li>
+                }
+            }
+
+            @if (CurrentPage < TotalPages)
+            {
+                <li class="usa-pagination__item usa-pagination__arrow">
+                    <a href="javascript:void(0)"
+                       class="usa-pagination__link usa-pagination__next-page"
+                       aria-label="Next page"
+                       @onclick="() => OnPageChanged.InvokeAsync(CurrentPage + 1)">
+                        <span class="usa-pagination__link-text">Next</span>
+                    </a>
+                </li>
+            }
+        </ul>
+    </nav>
+}
+
+@code {
+    [Parameter] public int CurrentPage { get; set; } = 1;
+    [Parameter] public int TotalPages { get; set; }
+    [Parameter] public EventCallback<int> OnPageChanged { get; set; }
+
+    /// <summary>
+    /// Generate page numbers with ellipsis for large page counts.
+    /// -1 represents an ellipsis slot.
+    /// </summary>
+    private List<int> GetPageNumbers()
+    {
+        var pages = new List<int>();
+        const int window = 2;
+
+        for (int i = 1; i <= TotalPages; i++)
+        {
+            if (i == 1 || i == TotalPages ||
+              (i >= CurrentPage - window && i <= CurrentPage + window))
+            {
+                pages.Add(i);
+            }
+            else if (pages.Count > 0 && pages[^1] != -1)
+            {
+                pages.Add(-1);
+            }
+        }
+        return pages;
+    }
+}
