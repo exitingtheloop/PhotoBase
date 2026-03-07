@@ -1,11 +1,14 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PhotoBase.API.Services;
+using PhotoBase.Shared.Constants;
 using PhotoBase.Shared.Responses;
 
 namespace PhotoBase.API.Controllers;
 
 [ApiController]
 [Route("api/import")]
+[Authorize(Roles = AppRoles.Admin)]
 public class ImportController : ControllerBase
 {
     private readonly TsvImportService _importService;
