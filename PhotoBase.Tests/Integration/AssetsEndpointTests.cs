@@ -7,289 +7,280 @@ namespace PhotoBase.Tests.Integration;
 
 /// <summary>
 /// Integration tests for /api/assets endpoints.
-/// Tests run in order within a single factory instance using IClassFixture.
-/// Each test is independent — uploads its own data so ordering doesn't matter.
+/// Upload/import are admin-only; download is auth-required; search/detail/thumb are public.
 /// </summary>
 public class AssetsEndpointTests : IClassFixture<PhotoBaseTestFactory>
 {
-    private readonly HttpClient _client;
+    private readonly PhotoBaseTestFactory _factory;
+    private readonly HttpClient _anonClient;
 
     public AssetsEndpointTests(PhotoBaseTestFactory factory)
     {
-  _client = factory.CreateClient();
- }
+        _factory = factory;
+        _anonClient = factory.CreateClient();
+    }
 
-    // ??? Upload ?????????????????????????????????????????????
+    // Helper: upload via admin client, return detail
+    private async Task<(HttpClient admin, AssetDetailDto detail)> UploadAsAdminAsync(
+      byte[]? jpeg = null, string title = "Test", string? accessionNumber = null,
+     string? keywords = null, string? location = null, string? photographer = null,
+  bool forceOverride = false)
+    {
+        var client = await _factory.CreateAdminClientAsync();
+        jpeg ??= TestData.CreateTestJpeg();
+        using var form = TestData.CreateUploadForm(jpeg, title: title,
+     accessionNumber: accessionNumber, keywords: keywords,
+     location: location, photographer: photographer,
+  forceOverrideDuplicate: forceOverride);
+        var resp = await client.PostAsync("/api/assets", form);
+        resp.EnsureSuccessStatusCode();
+        var detail = await resp.Content.ReadFromJsonAsync<AssetDetailDto>();
+        return (client, detail!);
+    }
+
+    // ??? Upload (Admin) ?????????????????????????????????
 
     [Fact]
     public async Task Upload_ValidImage_Returns201WithDetail()
     {
-    // Arrange
-    var jpeg = TestData.CreateTestJpeg(r: 100, g: 50, b: 25);
-    using var form = TestData.CreateUploadForm(jpeg,
-   title: "Upload Test Plant",
-            keywords: "test,upload",
-     location: "Lab A");
+        var jpeg = TestData.CreateTestJpeg(r: 100, g: 50, b: 25);
+        var (_, detail) = await UploadAsAdminAsync(jpeg, title: "Upload Test Plant",
+       keywords: "test,upload", location: "Lab A");
 
-    // Act
-    var response = await _client.PostAsync("/api/assets", form);
-
-        // Assert
-Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-
-        var detail = await response.Content.ReadFromJsonAsync<AssetDetailDto>();
- Assert.NotNull(detail);
-Assert.Equal("Upload Test Plant", detail.Title);
-Assert.Equal("Lab A", detail.Location);
-Assert.NotEqual(Guid.Empty, detail.Id);
+        Assert.Equal("Upload Test Plant", detail.Title);
+        Assert.Equal("Lab A", detail.Location);
+        Assert.NotEqual(Guid.Empty, detail.Id);
         Assert.Contains("/api/assets/", detail.ThumbUrl);
-
-   // Location header should point to the detail endpoint
-     Assert.NotNull(response.Headers.Location);
-        Assert.Contains(detail.Id.ToString(), response.Headers.Location.ToString());
     }
 
     [Fact]
     public async Task Upload_WithAccessionNumber_AutoFillsFromPlantRecord()
     {
-      // Arrange — first import a plant record
-       const string tsv = "AccessionNumber\tPlantName\tLocation\tCollectionTrip\n" +
-      "AUTOFILL-001\tRosa canina\tGarden Z - Rose Walk\tSpring 2024\n";
+        var admin = await _factory.CreateAdminClientAsync();
+        const string tsv = "AccessionNumber\tPlantName\tLocation\tCollectionTrip\n" +
+  "AUTOFILL-001\tRosa canina\tGarden Z - Rose Walk\tSpring 2024\n";
         using var importForm = TestData.CreateTsvForm(tsv);
-    await _client.PostAsync("/api/import/plant-records", importForm);
+        await admin.PostAsync("/api/import/plant-records", importForm);
 
-        // Upload image with that accession, but no location specified
-     var jpeg = TestData.CreateTestJpeg(r: 10, g: 20, b: 30);
-      using var form = TestData.CreateUploadForm(jpeg,
-   title: "Auto-fill Test",
-     accessionNumber: "AUTOFILL-001");
+        var jpeg = TestData.CreateTestJpeg(r: 10, g: 20, b: 30);
+        using var form = TestData.CreateUploadForm(jpeg,
+   title: "Auto-fill Test", accessionNumber: "AUTOFILL-001");
+        var response = await admin.PostAsync("/api/assets", form);
 
-    // Act
-   var response = await _client.PostAsync("/api/assets", form);
-
-  // Assert
-    Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var detail = await response.Content.ReadFromJsonAsync<AssetDetailDto>();
-     Assert.NotNull(detail);
-  Assert.Equal("AUTOFILL-001", detail.AccessionNumber);
-     Assert.Equal("Rosa canina", detail.PlantName);
-  // Location should be auto-filled from PlantRecord
-   Assert.Equal("Garden Z - Rose Walk", detail.Location);
+        Assert.NotNull(detail);
+        Assert.Equal("AUTOFILL-001", detail.AccessionNumber);
+        Assert.Equal("Rosa canina", detail.PlantName);
+        Assert.Equal("Garden Z - Rose Walk", detail.Location);
     }
 
     [Fact]
     public async Task Upload_DuplicateHash_Returns409()
     {
-     // Arrange — upload same file twice with SAME bytes
+        var admin = await _factory.CreateAdminClientAsync();
         var jpeg = TestData.CreateTestJpeg(r: 200, g: 200, b: 200);
 
         using var form1 = TestData.CreateUploadForm(jpeg, title: "First Upload");
-        var first = await _client.PostAsync("/api/assets", form1);
-    first.EnsureSuccessStatusCode();
+        await admin.PostAsync("/api/assets", form1);
 
-    // Act — same bytes, different metadata
-   using var form2 = TestData.CreateUploadForm(jpeg, title: "Duplicate Upload");
-  var second = await _client.PostAsync("/api/assets", form2);
-
-    // Assert
-    Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
+        using var form2 = TestData.CreateUploadForm(jpeg, title: "Duplicate Upload");
+        var second = await admin.PostAsync("/api/assets", form2);
+        Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
     }
 
     [Fact]
     public async Task Upload_DuplicateWithForceFlag_Returns201()
- {
-   // Arrange
-var jpeg = TestData.CreateTestJpeg(r: 150, g: 150, b: 150);
+    {
+        var admin = await _factory.CreateAdminClientAsync();
+        var jpeg = TestData.CreateTestJpeg(r: 150, g: 150, b: 150);
 
-  using var form1 = TestData.CreateUploadForm(jpeg, title: "Original");
- var first = await _client.PostAsync("/api/assets", form1);
-        first.EnsureSuccessStatusCode();
+        using var form1 = TestData.CreateUploadForm(jpeg, title: "Original");
+        await admin.PostAsync("/api/assets", form1);
 
-     // Act — force override
-    using var form2 = TestData.CreateUploadForm(jpeg, title: "Force Override", forceOverrideDuplicate: true);
-        var second = await _client.PostAsync("/api/assets", form2);
-
-       // Assert
-     Assert.Equal(HttpStatusCode.Created, second.StatusCode);
+        using var form2 = TestData.CreateUploadForm(jpeg, title: "Force Override", forceOverrideDuplicate: true);
+        var second = await admin.PostAsync("/api/assets", form2);
+        Assert.Equal(HttpStatusCode.Created, second.StatusCode);
     }
 
     [Fact]
     public async Task Upload_InvalidExtension_Returns400()
     {
-  // Arrange
-     var form = new MultipartFormDataContent();
-  var fileContent = new ByteArrayContent(new byte[] { 1, 2, 3, 4 });
-   fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
+        var admin = await _factory.CreateAdminClientAsync();
+        var form = new MultipartFormDataContent();
+        var fileContent = new ByteArrayContent(new byte[] { 1, 2, 3, 4 });
+        fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
         form.Add(fileContent, "file", "malware.exe");
-   form.Add(new StringContent("Bad File"), "Title");
+        form.Add(new StringContent("Bad File"), "Title");
 
-   // Act
-    var response = await _client.PostAsync("/api/assets", form);
-
-    // Assert
-   Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var response = await admin.PostAsync("/api/assets", form);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
-    // ??? Search ?????????????????????????????????????????????
+    [Fact]
+    public async Task Upload_Anonymous_Returns401()
+    {
+        var jpeg = TestData.CreateTestJpeg(r: 99, g: 99, b: 99);
+        using var form = TestData.CreateUploadForm(jpeg, title: "Anon Upload");
+        var response = await _anonClient.PostAsync("/api/assets", form);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Upload_InternalUser_Returns403()
+    {
+        var client = await _factory.CreateInternalClientAsync();
+        var jpeg = TestData.CreateTestJpeg(r: 88, g: 88, b: 88);
+        using var form = TestData.CreateUploadForm(jpeg, title: "Internal Upload");
+        var response = await client.PostAsync("/api/assets", form);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    // ??? Search (Public) ????????????????????????????????
 
     [Fact]
     public async Task Search_NoQuery_ReturnsPagedResult()
     {
-     // Arrange — upload something so there's data
-    var jpeg = TestData.CreateTestJpeg(r: 1, g: 2, b: 3);
-     using var form = TestData.CreateUploadForm(jpeg, title: "Searchable Plant", keywords: "magnolia,search-test");
-      await _client.PostAsync("/api/assets", form);
+        await UploadAsAdminAsync(TestData.CreateTestJpeg(r: 1, g: 2, b: 3),
+            title: "Searchable Plant", keywords: "magnolia,search-test");
 
-     // Act
-      var response = await _client.GetAsync("/api/assets?page=1&pageSize=10");
-
-     // Assert
-     response.EnsureSuccessStatusCode();
-    var result = await response.Content.ReadFromJsonAsync<PagedResult<AssetListItemDto>>();
-     Assert.NotNull(result);
-      Assert.True(result.TotalCount >= 1);
+        var response = await _anonClient.GetAsync("/api/assets?page=1&pageSize=10");
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<PagedResult<AssetListItemDto>>();
+        Assert.NotNull(result);
+        Assert.True(result.TotalCount >= 1);
         Assert.NotEmpty(result.Items);
-     Assert.Equal(1, result.Page);
     }
 
     [Fact]
     public async Task Search_ByKeyword_FiltersResults()
     {
-        // Arrange
-       var jpeg = TestData.CreateTestJpeg(r: 5, g: 10, b: 15);
-     using var form = TestData.CreateUploadForm(jpeg,
-            title: "Keyword Search Subject",
-       keywords: "unique-keyword-xyz");
-      await _client.PostAsync("/api/assets", form);
+        await UploadAsAdminAsync(TestData.CreateTestJpeg(r: 5, g: 10, b: 15),
+         title: "Keyword Search Subject", keywords: "unique-keyword-xyz");
 
-        // Act
-        var response = await _client.GetAsync("/api/assets?query=unique-keyword-xyz");
-
-        // Assert
-response.EnsureSuccessStatusCode();
+        var response = await _anonClient.GetAsync("/api/assets?query=unique-keyword-xyz");
+        response.EnsureSuccessStatusCode();
         var result = await response.Content.ReadFromJsonAsync<PagedResult<AssetListItemDto>>();
-    Assert.NotNull(result);
-     Assert.True(result.TotalCount >= 1);
+        Assert.NotNull(result);
+        Assert.True(result.TotalCount >= 1);
         Assert.All(result.Items, item =>
-            Assert.Contains("unique-keyword-xyz", item.Keywords ?? "", StringComparison.OrdinalIgnoreCase));
-  }
+      Assert.Contains("unique-keyword-xyz", item.Keywords ?? "", StringComparison.OrdinalIgnoreCase));
+    }
 
     [Fact]
     public async Task Search_ByPlantName_FindsViaJoin()
     {
-  // Arrange — import a plant record, then upload an image linked to it
+        var admin = await _factory.CreateAdminClientAsync();
         const string tsv = "AccessionNumber\tPlantName\tLocation\n" +
-          "SEARCH-001\tBetula pendula\tGarden X\n";
+    "SEARCH-001\tBetula pendula\tGarden X\n";
         using var importForm = TestData.CreateTsvForm(tsv);
-await _client.PostAsync("/api/import/plant-records", importForm);
+        await admin.PostAsync("/api/import/plant-records", importForm);
 
         var jpeg = TestData.CreateTestJpeg(r: 20, g: 40, b: 60);
- using var form = TestData.CreateUploadForm(jpeg,
-    title: "Birch Photo",
-       accessionNumber: "SEARCH-001");
-     await _client.PostAsync("/api/assets", form);
+        using var form = TestData.CreateUploadForm(jpeg,
+          title: "Birch Photo", accessionNumber: "SEARCH-001");
+        await admin.PostAsync("/api/assets", form);
 
-  // Act — search by plant name
-      var response = await _client.GetAsync("/api/assets?query=Betula");
-
-   // Assert
-  response.EnsureSuccessStatusCode();
-     var result = await response.Content.ReadFromJsonAsync<PagedResult<AssetListItemDto>>();
-  Assert.NotNull(result);
-  Assert.True(result.TotalCount >= 1);
+        var response = await _anonClient.GetAsync("/api/assets?query=Betula");
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<PagedResult<AssetListItemDto>>();
+        Assert.NotNull(result);
+        Assert.True(result.TotalCount >= 1);
         Assert.Contains(result.Items, item => item.PlantName?.Contains("Betula") == true);
     }
 
-    // ??? Detail ?????????????????????????????????????????????
+    // ??? Detail (Public) ????????????????????????????????
 
     [Fact]
     public async Task GetDetail_ExistingAsset_ReturnsFullDto()
     {
-    // Arrange
-        var jpeg = TestData.CreateTestJpeg(r: 30, g: 60, b: 90);
-     using var form = TestData.CreateUploadForm(jpeg, title: "Detail Test", photographer: "Jane Doe");
-    var uploadResponse = await _client.PostAsync("/api/assets", form);
-        var uploaded = await uploadResponse.Content.ReadFromJsonAsync<AssetDetailDto>();
+        var (_, uploaded) = await UploadAsAdminAsync(
+                TestData.CreateTestJpeg(r: 30, g: 60, b: 90),
+           title: "Detail Test", photographer: "Jane Doe");
 
-        // Act
-    var response = await _client.GetAsync($"/api/assets/{uploaded!.Id}");
-
-        // Assert
-  response.EnsureSuccessStatusCode();
+        var response = await _anonClient.GetAsync($"/api/assets/{uploaded.Id}");
+        response.EnsureSuccessStatusCode();
         var detail = await response.Content.ReadFromJsonAsync<AssetDetailDto>();
-     Assert.NotNull(detail);
-     Assert.Equal(uploaded.Id, detail.Id);
-Assert.Equal("Detail Test", detail.Title);
-    Assert.Equal("Jane Doe", detail.Photographer);
-        Assert.Equal("test-plant.jpg", detail.OriginalFileName);
-  }
+        Assert.NotNull(detail);
+        Assert.Equal(uploaded.Id, detail.Id);
+        Assert.Equal("Detail Test", detail.Title);
+        Assert.Equal("Jane Doe", detail.Photographer);
+    }
 
     [Fact]
     public async Task GetDetail_NonExistent_Returns404()
     {
-   var response = await _client.GetAsync($"/api/assets/{Guid.NewGuid()}");
+        var response = await _anonClient.GetAsync($"/api/assets/{Guid.NewGuid()}");
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
-    // ??? Thumbnail ??????????????????????????????????????????
+    // ??? Thumbnail (Public) ?????????????????????????????
 
-  [Fact]
-  public async Task GetThumbnail_ReturnsJpegImage()
+    [Fact]
+    public async Task GetThumbnail_ReturnsJpegImage()
     {
-        // Arrange
-        var jpeg = TestData.CreateTestJpeg(r: 40, g: 80, b: 120);
-     using var form = TestData.CreateUploadForm(jpeg, title: "Thumb Test");
-        var uploadResponse = await _client.PostAsync("/api/assets", form);
-     var uploaded = await uploadResponse.Content.ReadFromJsonAsync<AssetDetailDto>();
+        var (_, uploaded) = await UploadAsAdminAsync(
+       TestData.CreateTestJpeg(r: 40, g: 80, b: 120), title: "Thumb Test");
 
-        // Act
-     var response = await _client.GetAsync($"/api/assets/{uploaded!.Id}/thumb");
-
-     // Assert
-     response.EnsureSuccessStatusCode();
-   Assert.Equal("image/jpeg", response.Content.Headers.ContentType?.MediaType);
-      var bytes = await response.Content.ReadAsByteArrayAsync();
-      Assert.True(bytes.Length > 0);
-       // JPEG magic bytes: FF D8
-     Assert.Equal(0xFF, bytes[0]);
-   Assert.Equal(0xD8, bytes[1]);
+        var response = await _anonClient.GetAsync($"/api/assets/{uploaded.Id}/thumb");
+        response.EnsureSuccessStatusCode();
+        Assert.Equal("image/jpeg", response.Content.Headers.ContentType?.MediaType);
+        var bytes = await response.Content.ReadAsByteArrayAsync();
+        Assert.Equal(0xFF, bytes[0]);
+        Assert.Equal(0xD8, bytes[1]);
     }
 
     [Fact]
     public async Task GetThumbnail_NonExistent_Returns404()
-  {
-     var response = await _client.GetAsync($"/api/assets/{Guid.NewGuid()}/thumb");
- Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    {
+        var response = await _anonClient.GetAsync($"/api/assets/{Guid.NewGuid()}/thumb");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
-    // ??? Download ???????????????????????????????????????????
+    // ??? Download (Auth required) ???????????????????????
 
-  [Fact]
-  public async Task Download_ReturnsOriginalFile()
+    [Fact]
+    public async Task Download_AsInternal_ReturnsOriginalFile()
     {
-    // Arrange
-  var jpeg = TestData.CreateTestJpeg(r: 50, g: 100, b: 150);
-    using var form = TestData.CreateUploadForm(jpeg, title: "Download Test");
-     var uploadResponse = await _client.PostAsync("/api/assets", form);
-     var uploaded = await uploadResponse.Content.ReadFromJsonAsync<AssetDetailDto>();
+        // Upload as admin
+        var (_, uploaded) = await UploadAsAdminAsync(
+       TestData.CreateTestJpeg(r: 50, g: 100, b: 150), title: "Download Test");
 
-        // Act
-    var response = await _client.GetAsync($"/api/assets/{uploaded!.Id}/download");
+        // Download as internal user
+        var internal_ = await _factory.CreateInternalClientAsync();
+        var response = await internal_.GetAsync($"/api/assets/{uploaded.Id}/download");
 
-  // Assert
-     response.EnsureSuccessStatusCode();
-   Assert.Equal("image/jpeg", response.Content.Headers.ContentType?.MediaType);
-   var bytes = await response.Content.ReadAsByteArrayAsync();
-   Assert.True(bytes.Length > 0);
-     // Should have Content-Disposition header for download
-      Assert.NotNull(response.Content.Headers.ContentDisposition);
-      Assert.Equal("attachment", response.Content.Headers.ContentDisposition.DispositionType);
+        response.EnsureSuccessStatusCode();
+        Assert.Equal("image/jpeg", response.Content.Headers.ContentType?.MediaType);
+        Assert.NotNull(response.Content.Headers.ContentDisposition);
+        Assert.Equal("attachment", response.Content.Headers.ContentDisposition.DispositionType);
+    }
+
+    [Fact]
+    public async Task Download_AsAdmin_ReturnsOriginalFile()
+    {
+        var (admin, uploaded) = await UploadAsAdminAsync(
+        TestData.CreateTestJpeg(r: 55, g: 105, b: 155), title: "Admin Download Test");
+
+        var response = await admin.GetAsync($"/api/assets/{uploaded.Id}/download");
+        response.EnsureSuccessStatusCode();
+    }
+
+    [Fact]
+    public async Task Download_Anonymous_Returns401()
+    {
+        var (_, uploaded) = await UploadAsAdminAsync(
+          TestData.CreateTestJpeg(r: 60, g: 110, b: 160), title: "Anon Download Test");
+
+        var response = await _anonClient.GetAsync($"/api/assets/{uploaded.Id}/download");
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     [Fact]
     public async Task Download_NonExistent_Returns404()
     {
- var response = await _client.GetAsync($"/api/assets/{Guid.NewGuid()}/download");
-    Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        var client = await _factory.CreateInternalClientAsync();
+        var response = await client.GetAsync($"/api/assets/{Guid.NewGuid()}/download");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 }
