@@ -123,18 +123,29 @@
                                         @if (!string.IsNullOrEmpty(asset.PlantName))
                                         {
                                             <p class="margin-top-05 margin-bottom-05">
-                                                <strong>@asset.PlantName</strong>
+                                                <a href="@GalleryUrl(query: asset.PlantName)" class="usa-link text-bold">@asset.PlantName</a>
                                             </p>
                                         }
                                         @if (!string.IsNullOrEmpty(asset.AccessionNumber))
                                         {
                                             <p class="text-base margin-top-0 margin-bottom-0">
-                                                Accession: @asset.AccessionNumber
+                                                Accession: <a href="@GalleryUrl(query: asset.AccessionNumber)" class="usa-link">@asset.AccessionNumber</a>
                                             </p>
                                         }
                                         @if (!string.IsNullOrEmpty(asset.Location))
                                         {
-                                            <p class="text-base margin-top-0">@asset.Location</p>
+                                            <p class="text-base margin-top-0 margin-bottom-0">
+                                                <a href="@GalleryUrl(location: asset.Location)" class="usa-link">@asset.Location</a>
+                                            </p>
+                                        }
+                                        @if (!string.IsNullOrEmpty(asset.Keywords))
+                                        {
+                                            <div class="margin-top-05">
+                                                @foreach (var kw in asset.Keywords.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).Take(3))
+                                                {
+                                                    <a href="@GalleryUrl(query: kw)" class="usa-tag margin-right-05 margin-bottom-05 text-decoration-none">@kw</a>
+                                                }
+                                            </div>
                                         }
                                     </div>
                                 </div>
@@ -322,5 +333,25 @@
             url += "?" + string.Join("&", parts);
 
         Nav.NavigateTo(url, replace: true);
+    }
+
+    /// <summary>Build a gallery URL with a single filter applied (for clickable metadata).</summary>
+    private static string GalleryUrl(
+        string? query = null, string? category = null,
+   string? location = null, string? photographer = null,
+ int? year = null)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(query))
+            parts.Add($"query={Uri.EscapeDataString(query)}");
+        if (!string.IsNullOrWhiteSpace(category))
+            parts.Add($"category={Uri.EscapeDataString(category)}");
+        if (!string.IsNullOrWhiteSpace(location))
+            parts.Add($"location={Uri.EscapeDataString(location)}");
+        if (!string.IsNullOrWhiteSpace(photographer))
+            parts.Add($"photographer={Uri.EscapeDataString(photographer)}");
+        if (year.HasValue)
+            parts.Add($"year={year.Value}");
+        return parts.Count > 0 ? $"/gallery?{string.Join("&", parts)}" : "/gallery";
     }
 }

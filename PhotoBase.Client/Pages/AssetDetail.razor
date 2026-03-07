@@ -53,35 +53,45 @@
                             {
                                 <tr>
                                     <th scope="row" class="text-no-wrap">Plant Name</th>
-                                    <td>@_asset.PlantName</td>
+                                    <td>
+                                        <a href="@FilterUrl(query: _asset.PlantName)" class="usa-link">@_asset.PlantName</a>
+                                    </td>
                                 </tr>
                             }
                             @if (!string.IsNullOrEmpty(_asset.AccessionNumber))
                             {
                                 <tr>
                                     <th scope="row" class="text-no-wrap">Accession</th>
-                                    <td>@_asset.AccessionNumber</td>
+                                    <td>
+                                        <a href="@FilterUrl(query: _asset.AccessionNumber)" class="usa-link">@_asset.AccessionNumber</a>
+                                    </td>
                                 </tr>
                             }
                             @if (!string.IsNullOrEmpty(_asset.Location))
                             {
                                 <tr>
                                     <th scope="row">Location</th>
-                                    <td>@_asset.Location</td>
+                                    <td>
+                                        <a href="@FilterUrl(location: _asset.Location)" class="usa-link">@_asset.Location</a>
+                                    </td>
                                 </tr>
                             }
                             @if (!string.IsNullOrEmpty(_asset.Photographer))
                             {
                                 <tr>
                                     <th scope="row">Photographer</th>
-                                    <td>@_asset.Photographer</td>
+                                    <td>
+                                        <a href="@FilterUrl(photographer: _asset.Photographer)" class="usa-link">@_asset.Photographer</a>
+                                    </td>
                                 </tr>
                             }
                             @if (_asset.DateTaken.HasValue)
                             {
                                 <tr>
                                     <th scope="row" class="text-no-wrap">Date Taken</th>
-                                    <td>@_asset.DateTaken.Value.ToString("MMMM d, yyyy")</td>
+                                    <td>
+                                        <a href="@FilterUrl(year: _asset.DateTaken.Value.Year)" class="usa-link">@_asset.DateTaken.Value.ToString("MMMM d, yyyy")</a>
+                                    </td>
                                 </tr>
                             }
                             @if (!string.IsNullOrEmpty(_asset.Keywords))
@@ -91,7 +101,8 @@
                                     <td>
                                         @foreach (var kw in _asset.Keywords.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
                                         {
-                                            <span class="usa-tag margin-right-05 margin-bottom-05">@kw</span>
+                                            <a href="@FilterUrl(query: kw)"
+                                               class="usa-tag margin-right-05 margin-bottom-05 text-decoration-none">@kw</a>
                                         }
                                     </td>
                                 </tr>
@@ -103,7 +114,8 @@
                                     <td>
                                         @foreach (var cat in _asset.Categories.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
                                         {
-                                            <span class="usa-tag bg-accent-cool margin-right-05 margin-bottom-05">@cat</span>
+                                            <a href="@FilterUrl(category: cat)"
+                                               class="usa-tag bg-accent-cool margin-right-05 margin-bottom-05 text-decoration-none">@cat</a>
                                         }
                                     </td>
                                 </tr>
@@ -219,5 +231,25 @@
         {
             _downloading = false;
         }
+    }
+
+    /// <summary>Build a gallery URL with a single filter applied.</summary>
+    private static string FilterUrl(
+        string? query = null, string? category = null,
+        string? location = null, string? photographer = null,
+        int? year = null)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(query))
+            parts.Add($"query={Uri.EscapeDataString(query)}");
+        if (!string.IsNullOrWhiteSpace(category))
+            parts.Add($"category={Uri.EscapeDataString(category)}");
+        if (!string.IsNullOrWhiteSpace(location))
+            parts.Add($"location={Uri.EscapeDataString(location)}");
+        if (!string.IsNullOrWhiteSpace(photographer))
+            parts.Add($"photographer={Uri.EscapeDataString(photographer)}");
+        if (year.HasValue)
+            parts.Add($"year={year.Value}");
+        return parts.Count > 0 ? $"/gallery?{string.Join("&", parts)}" : "/gallery";
     }
 }
