@@ -41,59 +41,96 @@ public class AssetsController : ControllerBase
     }
 
     // ???????????????????????????????????????????????
-    // GET /api/assets?query=&page=1&pageSize=20
+    // GET /api/assets?query=&category=&location=&photographer=&year=&sort=newest&page=1&pageSize=20
     // Public
     // ???????????????????????????????????????????????
     [HttpGet]
     [AllowAnonymous]
     public async Task<ActionResult<PagedResult<AssetListItemDto>>> Search(
-        [FromQuery] string? query,
-      [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 20,
-    CancellationToken ct = default)
+  [FromQuery] string? query,
+    [FromQuery] string? category,
+        [FromQuery] string? location,
+     [FromQuery] string? photographer,
+ [FromQuery] int? year,
+        [FromQuery] string sort = "newest",
+        [FromQuery] int page = 1,
+ [FromQuery] int pageSize = 20,
+        CancellationToken ct = default)
     {
         if (page < 1) page = 1;
         pageSize = Math.Clamp(pageSize, 1, 100);
 
         IQueryable<ImageAsset> q = _db.ImageAssets
-            .Include(a => a.PlantRecord)
-    .AsNoTracking();
+       .Include(a => a.PlantRecord)
+ .AsNoTracking();
 
-        // Apply search filter
+        // Full-text search filter
         if (!string.IsNullOrWhiteSpace(query))
         {
             var term = query.Trim();
             q = q.Where(a =>
-            a.Title.Contains(term) ||
-           (a.AccessionNumber != null && a.AccessionNumber.Contains(term)) ||
-            (a.PlantRecord != null && a.PlantRecord.PlantName.Contains(term)) ||
-                   (a.Keywords != null && a.Keywords.Contains(term)) ||
-                  (a.Location != null && a.Location.Contains(term)) ||
-                       (a.Categories != null && a.Categories.Contains(term))
-          );
+                    a.Title.Contains(term) ||
+            (a.AccessionNumber != null && a.AccessionNumber.Contains(term)) ||
+                       (a.PlantRecord != null && a.PlantRecord.PlantName.Contains(term)) ||
+                    (a.Keywords != null && a.Keywords.Contains(term)) ||
+                    (a.Location != null && a.Location.Contains(term)) ||
+                  (a.Categories != null && a.Categories.Contains(term))
+            );
+        }
+
+        // Facet filters
+        if (!string.IsNullOrWhiteSpace(category))
+        {
+            var cat = category.Trim();
+            q = q.Where(a => a.Categories != null && a.Categories.Contains(cat));
+        }
+
+        if (!string.IsNullOrWhiteSpace(location))
+        {
+            var loc = location.Trim();
+            q = q.Where(a => a.Location != null && a.Location == loc);
+        }
+
+        if (!string.IsNullOrWhiteSpace(photographer))
+        {
+            var photo = photographer.Trim();
+            q = q.Where(a => a.Photographer != null && a.Photographer == photo);
+        }
+
+        if (year.HasValue)
+        {
+            q = q.Where(a => a.DateTaken != null && a.DateTaken.Value.Year == year.Value);
         }
 
         var totalCount = await q.CountAsync(ct);
 
-        var items = await q
-   .OrderByDescending(a => a.CreatedAt)
+        // Sort
+        IOrderedQueryable<ImageAsset> ordered = sort?.ToLowerInvariant() switch
+        {
+            "oldest" => q.OrderBy(a => a.CreatedAt),
+            "title" => q.OrderBy(a => a.Title),
+            "date-taken" => q.OrderByDescending(a => a.DateTaken),
+            _ => q.OrderByDescending(a => a.CreatedAt), // "newest" default
+        };
+
+        var items = await ordered
             .Skip((page - 1) * pageSize)
-         .Take(pageSize)
-            .Select(a => new AssetListItemDto
-            {
-                Id = a.Id,
-                Title = a.Title,
-                AccessionNumber = a.AccessionNumber,
-                PlantName = a.PlantRecord != null ? a.PlantRecord.PlantName : null,
-                Location = a.Location,
-                Photographer = a.Photographer,
-                Keywords = a.Keywords,
-                Categories = a.Categories,
-                DateTaken = a.DateTaken,
-                CreatedAt = a.CreatedAt,
-                ThumbUrl = $"/api/assets/{a.Id}/thumb"
-            })
-            .ToListAsync(ct);
+     .Take(pageSize)
+    .Select(a => new AssetListItemDto
+    {
+        Id = a.Id,
+        Title = a.Title,
+        AccessionNumber = a.AccessionNumber,
+        PlantName = a.PlantRecord != null ? a.PlantRecord.PlantName : null,
+        Location = a.Location,
+        Photographer = a.Photographer,
+        Keywords = a.Keywords,
+        Categories = a.Categories,
+        DateTaken = a.DateTaken,
+        CreatedAt = a.CreatedAt,
+        ThumbUrl = $"/api/assets/{a.Id}/thumb"
+    })
+          .ToListAsync(ct);
 
         return Ok(new PagedResult<AssetListItemDto>
         {
@@ -101,6 +138,65 @@ public class AssetsController : ControllerBase
             Page = page,
             PageSize = pageSize,
             TotalCount = totalCount
+        });
+    }
+
+    // ???????????????????????????????????????????????
+    // GET /api/assets/facets
+    // Public — returns distinct values + counts for filter sidebar
+    // ???????????????????????????????????????????????
+    [HttpGet("facets")]
+    [AllowAnonymous]
+    public async Task<ActionResult<FacetsDto>> GetFacets(CancellationToken ct)
+    {
+        var assets = _db.ImageAssets.AsNoTracking();
+
+        // Categories: stored as comma-separated, need to split and group
+        var allCategories = await assets
+               .Where(a => a.Categories != null && a.Categories != "")
+            .Select(a => a.Categories!)
+             .ToListAsync(ct);
+
+        var categoryFacets = allCategories
+      .SelectMany(c => c.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+      .GroupBy(c => c, StringComparer.OrdinalIgnoreCase)
+          .Select(g => new FacetValueDto { Value = g.First(), Count = g.Count() })
+            .OrderByDescending(f => f.Count)
+ .ThenBy(f => f.Value)
+  .ToList();
+
+        // Locations: exact match
+        var locationFacets = await assets
+            .Where(a => a.Location != null && a.Location != "")
+            .GroupBy(a => a.Location!)
+          .Select(g => new FacetValueDto { Value = g.Key, Count = g.Count() })
+            .OrderByDescending(f => f.Count)
+            .ThenBy(f => f.Value)
+         .ToListAsync(ct);
+
+        // Photographers: exact match
+        var photographerFacets = await assets
+                 .Where(a => a.Photographer != null && a.Photographer != "")
+             .GroupBy(a => a.Photographer!)
+           .Select(g => new FacetValueDto { Value = g.Key, Count = g.Count() })
+          .OrderByDescending(f => f.Count)
+              .ThenBy(f => f.Value)
+                 .ToListAsync(ct);
+
+        // Years: from DateTaken
+        var yearFacets = await assets
+    .Where(a => a.DateTaken != null)
+            .GroupBy(a => a.DateTaken!.Value.Year)
+   .Select(g => new FacetValueDto { Value = g.Key.ToString(), Count = g.Count() })
+ .OrderByDescending(f => f.Value)
+            .ToListAsync(ct);
+
+        return Ok(new FacetsDto
+        {
+            Categories = categoryFacets,
+            Locations = locationFacets,
+            Photographers = photographerFacets,
+            Years = yearFacets
         });
     }
 

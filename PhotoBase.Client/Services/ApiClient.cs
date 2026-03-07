@@ -17,16 +17,41 @@ public class ApiClient
 
     // ── Assets (public) ─────────────────────────────────
 
-    /// <summary>Search / list assets with paging.</summary>
+    /// <summary>Search / list assets with paging, filters, and sort.</summary>
     public async Task<PagedResult<AssetListItemDto>> SearchAssetsAsync(
-        string? query = null, int page = 1, int pageSize = 20)
+        string? query = null, int page = 1, int pageSize = 20,
+        string? category = null, string? location = null,
+        string? photographer = null, int? year = null,
+        string sort = "newest")
     {
-        var url = $"api/assets?page={page}&pageSize={pageSize}";
+        var parts = new List<string>
+        {
+            $"page={page}",
+            $"pageSize={pageSize}",
+            $"sort={Uri.EscapeDataString(sort)}"
+        };
         if (!string.IsNullOrWhiteSpace(query))
-            url += $"&query={Uri.EscapeDataString(query)}";
+            parts.Add($"query={Uri.EscapeDataString(query)}");
+        if (!string.IsNullOrWhiteSpace(category))
+            parts.Add($"category={Uri.EscapeDataString(category)}");
+        if (!string.IsNullOrWhiteSpace(location))
+            parts.Add($"location={Uri.EscapeDataString(location)}");
+        if (!string.IsNullOrWhiteSpace(photographer))
+            parts.Add($"photographer={Uri.EscapeDataString(photographer)}");
+        if (year.HasValue)
+            parts.Add($"year={year.Value}");
+
+        var url = $"api/assets?{string.Join("&", parts)}";
 
         return await _http.GetFromJsonAsync<PagedResult<AssetListItemDto>>(url)
                ?? new PagedResult<AssetListItemDto>();
+    }
+
+    /// <summary>Get facet values (distinct categories, locations, photographers, years) with counts.</summary>
+    public async Task<FacetsDto> GetFacetsAsync()
+    {
+        return await _http.GetFromJsonAsync<FacetsDto>("api/assets/facets")
+               ?? new FacetsDto();
     }
 
     /// <summary>Get full detail for a single asset.</summary>
