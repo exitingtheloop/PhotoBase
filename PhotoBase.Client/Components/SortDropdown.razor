@@ -1,0 +1,27 @@
+@* Sort dropdown using USWDS select styling *@
+
+<div class="display-flex flex-align-center grid-gap-05">
+    <label class="usa-label margin-0 font-body-2xs text-base text-no-wrap" for="@Id">Sort by</label>
+    <select class="usa-select margin-0 width-auto font-body-2xs"
+            id="@Id"
+            value="@Value"
+            @onchange="HandleChange"
+            style="min-width: 10rem; padding-top: 0.4rem; padding-bottom: 0.4rem;">
+        <option value="newest">Newest first</option>
+        <option value="oldest">Oldest first</option>
+        <option value="title">Title A–Z</option>
+        <option value="date-taken">Date taken</option>
+    </select>
+</div>
+
+@code {
+    [Parameter] public string Id { get; set; } = "sort-select";
+    [Parameter] public string Value { get; set; } = "newest";
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+
+    private async Task HandleChange(ChangeEventArgs e)
+    {
+        var val = e.Value?.ToString() ?? "newest";
+        await ValueChanged.InvokeAsync(val);
+    }
+}

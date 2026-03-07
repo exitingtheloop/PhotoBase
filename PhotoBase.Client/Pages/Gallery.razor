@@ -9,7 +9,7 @@
         <h1 class="font-heading-xl margin-top-0">Gallery</h1>
 
         <!-- Search bar -->
-        <div class="margin-bottom-4">
+        <div class="margin-bottom-3">
             <div class="display-flex flex-align-end grid-gap-1">
                 <div class="flex-fill">
                     <UsaSearch Size="big"
@@ -21,128 +21,175 @@
                                SearchTermChanged="val => _query = val"
                                OnSearch="HandleSearch" />
                 </div>
-                @if (!string.IsNullOrWhiteSpace(_query))
-                {
-                    <button type="button"
-                            class="usa-button usa-button--unstyled text-no-wrap margin-left-1"
-                            @onclick="ClearSearch">
-                        Clear search
-                    </button>
-                }
             </div>
         </div>
 
-        <!-- Status / results -->
-        @if (_loading)
-        {
-            <UsaSpinner Message="Searching the collection…" />
-        }
-        else if (_error is not null)
-        {
-            <UsaAlert Type="error" Heading="Something went wrong">
-                @_error
-            </UsaAlert>
-            <button class="usa-button usa-button--outline margin-top-2" @onclick="RetryLoad">
-                Try again
-            </button>
-        }
-        else if (_result is not null && _result.Items.Count == 0)
-        {
-            <UsaAlert Type="info" Heading="No results">
-                @if (string.IsNullOrWhiteSpace(_query))
-                {
-                    <span>The gallery is empty. Upload some images to get started.</span>
-                }
-                else
-                {
-                    <span>No assets match "<strong>@_query</strong>". Try a different search term.</span>
-                }
-            </UsaAlert>
-        }
-        else if (_result is not null)
-        {
-            <!-- Result count -->
-            <p class="text-base margin-bottom-2">
-                Showing @((_result.Page - 1) * _result.PageSize + 1)–@(Math.Min(_result.Page * _result.PageSize, _result.TotalCount))
-                of @_result.TotalCount results
-                @if (!string.IsNullOrWhiteSpace(_query))
-                {
-                    <span> for "<strong>@_query</strong>"</span>
-                }
-            </p>
+        <!-- Active filter chips -->
+        <ActiveFilters Query="@_query"
+                       Category="@_category"
+                       Location="@_location"
+                       Photographer="@_photographer"
+                       Year="@_year"
+                       OnClearQuery="() => ClearFilter(nameof(_query))"
+                       OnClearCategory="() => ClearFilter(nameof(_category))"
+                       OnClearLocation="() => ClearFilter(nameof(_location))"
+                       OnClearPhotographer="() => ClearFilter(nameof(_photographer))"
+                       OnClearYear="() => ClearFilter(nameof(_year))"
+                       OnClearAll="ClearAllFilters" />
 
-            <!-- Card grid -->
-            <ul class="usa-card-group">
-                @foreach (var asset in _result.Items)
+        <!-- Main layout: sidebar + results -->
+        <div class="grid-row grid-gap-4">
+
+            <!-- Filter sidebar -->
+            <aside class="desktop:grid-col-3">
+                @if (_facets is not null)
                 {
-                    <li class="usa-card tablet:grid-col-4 margin-bottom-3">
-                        <div class="usa-card__container">
-                            <div class="usa-card__media">
-                                <div class="usa-card__img">
-                                    <a href="/gallery/@asset.Id" aria-label="View @asset.Title">
-                                        <img src="@asset.ThumbUrl"
-                                             alt="@asset.Title"
-                                             loading="lazy"
-                                             onerror="this.onerror=null;this.src='/uswds-custom/img/circle-124.png';"
-                                             style="width:100%; height:200px; object-fit:cover;" />
-                                    </a>
+                    <FilterSidebar Facets="_facets"
+                                   SelectedCategory="@_category"
+                                   SelectedLocation="@_location"
+                                   SelectedPhotographer="@_photographer"
+                                   SelectedYear="@_year"
+                                   SelectedCategoryChanged="val => { _category = val; }"
+                                   SelectedLocationChanged="val => { _location = val; }"
+                                   SelectedPhotographerChanged="val => { _photographer = val; }"
+                                   SelectedYearChanged="val => { _year = val; }"
+                                   OnFiltersChanged="HandleFiltersChanged" />
+                }
+            </aside>
+
+            <!-- Results -->
+            <div class="desktop:grid-col-9">
+
+                @if (_loading)
+                {
+                    <UsaSpinner Message="Searching the collection…" />
+                }
+                else if (_error is not null)
+                {
+                    <UsaAlert Type="error" Heading="Something went wrong">
+                        @_error
+                    </UsaAlert>
+                    <button class="usa-button usa-button--outline margin-top-2" @onclick="RetryLoad">
+                        Try again
+                    </button>
+                }
+                else if (_result is not null && _result.Items.Count == 0)
+                {
+                    <UsaAlert Type="info" Heading="No results">
+                        @if (!HasAnyFilter)
+                        {
+                            <span>The gallery is empty. Upload some images to get started.</span>
+                        }
+                        else
+                        {
+                            <span>No assets match the current filters. Try removing some filters.</span>
+                        }
+                    </UsaAlert>
+                }
+                else if (_result is not null)
+                {
+                    <!-- Result count + sort -->
+                    <div class="display-flex flex-justify flex-align-center margin-bottom-2">
+                        <p class="text-base margin-0">
+                            Showing @((_result.Page - 1) * _result.PageSize + 1)–@(Math.Min(_result.Page * _result.PageSize, _result.TotalCount))
+                            of @_result.TotalCount results
+                        </p>
+                        <SortDropdown Value="@_sort" ValueChanged="HandleSortChanged" />
+                    </div>
+
+                    <!-- Card grid -->
+                    <ul class="usa-card-group">
+                        @foreach (var asset in _result.Items)
+                        {
+                            <li class="usa-card tablet:grid-col-4 margin-bottom-3">
+                                <div class="usa-card__container">
+                                    <div class="usa-card__media">
+                                        <div class="usa-card__img">
+                                            <a href="/gallery/@asset.Id" aria-label="View @asset.Title">
+                                                <img src="@asset.ThumbUrl"
+                                                     alt="@asset.Title"
+                                                     loading="lazy"
+                                                     onerror="this.onerror=null;this.src='/uswds-custom/img/circle-124.png';"
+                                                     style="width:100%; height:200px; object-fit:cover;" />
+                                            </a>
+                                        </div>
+                                    </div>
+                                    <div class="usa-card__body">
+                                        <h3 class="usa-card__heading">
+                                            <a href="/gallery/@asset.Id" class="usa-link">
+                                                @asset.Title
+                                            </a>
+                                        </h3>
+                                        @if (!string.IsNullOrEmpty(asset.PlantName))
+                                        {
+                                            <p class="margin-top-05 margin-bottom-05">
+                                                <strong>@asset.PlantName</strong>
+                                            </p>
+                                        }
+                                        @if (!string.IsNullOrEmpty(asset.AccessionNumber))
+                                        {
+                                            <p class="text-base margin-top-0 margin-bottom-0">
+                                                Accession: @asset.AccessionNumber
+                                            </p>
+                                        }
+                                        @if (!string.IsNullOrEmpty(asset.Location))
+                                        {
+                                            <p class="text-base margin-top-0">@asset.Location</p>
+                                        }
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="usa-card__body">
-                                <h3 class="usa-card__heading">
-                                    <a href="/gallery/@asset.Id" class="usa-link">
-                                        @asset.Title
-                                    </a>
-                                </h3>
-                                @if (!string.IsNullOrEmpty(asset.PlantName))
-                                {
-                                    <p class="margin-top-05 margin-bottom-05">
-                                        <strong>@asset.PlantName</strong>
-                                    </p>
-                                }
-                                @if (!string.IsNullOrEmpty(asset.AccessionNumber))
-                                {
-                                    <p class="text-base margin-top-0 margin-bottom-0">
-                                        Accession: @asset.AccessionNumber
-                                    </p>
-                                }
-                                @if (!string.IsNullOrEmpty(asset.Location))
-                                {
-                                    <p class="text-base margin-top-0">@asset.Location</p>
-                                }
-                            </div>
-                        </div>
-                    </li>
-                }
-            </ul>
+                            </li>
+                        }
+                    </ul>
 
-            <!-- Pagination -->
-            <UsaPagination CurrentPage="_result.Page"
-                           TotalPages="_result.TotalPages"
-                           OnPageChanged="HandlePageChanged" />
-        }
+                    <!-- Pagination -->
+                    <UsaPagination CurrentPage="_result.Page"
+                                   TotalPages="_result.TotalPages"
+                                   OnPageChanged="HandlePageChanged" />
+                }
+            </div>
+        </div>
     </div>
 </section>
 
 @code {
+    // State
     private string _query = "";
+    private string? _category;
+    private string? _location;
+    private string? _photographer;
+    private int? _year;
+    private string _sort = "newest";
     private int _page = 1;
     private const int PageSize = 12;
+
     private PagedResult<AssetListItemDto>? _result;
+    private FacetsDto? _facets;
     private bool _loading;
     private string? _error;
 
+    private bool HasAnyFilter =>
+        !string.IsNullOrWhiteSpace(_query) || _category is not null ||
+        _location is not null || _photographer is not null || _year is not null;
+
     protected override async Task OnInitializedAsync()
     {
-        // Check for query param in URL
+        // Restore state from URL query params
         var uri = new Uri(Nav.Uri);
         var qs = System.Web.HttpUtility.ParseQueryString(uri.Query);
         _query = qs["query"] ?? "";
-        if (int.TryParse(qs["page"], out var p) && p > 0)
-            _page = p;
+        _category = qs["category"];
+        _location = qs["location"];
+        _photographer = qs["photographer"];
+        _sort = qs["sort"] ?? "newest";
+        if (int.TryParse(qs["year"], out var y)) _year = y;
+        if (int.TryParse(qs["page"], out var p) && p > 0) _page = p;
 
-        await LoadAsync();
+        // Load facets + results in parallel
+        await Task.WhenAll(LoadFacetsAsync(), LoadAsync());
     }
+
+    // ?? Search ??????????????????????????????????????????
 
     private async Task HandleSearch(string term)
     {
@@ -152,21 +199,75 @@
         await LoadAsync();
     }
 
-    private async Task ClearSearch()
+    // ?? Filters ?????????????????????????????????????????
+
+    private async Task HandleFiltersChanged()
     {
-        _query = "";
         _page = 1;
         UpdateUrl();
         await LoadAsync();
     }
 
-    private async Task RetryLoad() => await LoadAsync();
+    private async Task ClearFilter(string which)
+    {
+        switch (which)
+        {
+            case nameof(_query): _query = ""; break;
+            case nameof(_category): _category = null; break;
+            case nameof(_location): _location = null; break;
+            case nameof(_photographer): _photographer = null; break;
+            case nameof(_year): _year = null; break;
+        }
+        _page = 1;
+        UpdateUrl();
+        await LoadAsync();
+    }
+
+    private async Task ClearAllFilters()
+    {
+        _query = "";
+        _category = null;
+        _location = null;
+        _photographer = null;
+        _year = null;
+        _page = 1;
+        UpdateUrl();
+        await LoadAsync();
+    }
+
+    // ?? Sort ????????????????????????????????????????????
+
+    private async Task HandleSortChanged(string value)
+    {
+        _sort = value;
+        _page = 1;
+        UpdateUrl();
+        await LoadAsync();
+    }
+
+    // ?? Pagination ??????????????????????????????????????
 
     private async Task HandlePageChanged(int page)
     {
         _page = page;
         UpdateUrl();
         await LoadAsync();
+    }
+
+    private async Task RetryLoad() => await LoadAsync();
+
+    // ?? Data loading ????????????????????????????????????
+
+    private async Task LoadFacetsAsync()
+    {
+        try
+        {
+            _facets = await Api.GetFacetsAsync();
+        }
+        catch
+        {
+            _facets = new FacetsDto();
+        }
     }
 
     private async Task LoadAsync()
@@ -177,7 +278,15 @@
 
         try
         {
-            _result = await Api.SearchAssetsAsync(_query, _page, PageSize);
+            _result = await Api.SearchAssetsAsync(
+                   query: string.IsNullOrWhiteSpace(_query) ? null : _query,
+                 page: _page,
+                pageSize: PageSize,
+                   category: _category,
+                  location: _location,
+           photographer: _photographer,
+                   year: _year,
+                     sort: _sort);
         }
         catch (Exception ex)
         {
@@ -189,12 +298,24 @@
         }
     }
 
+    // ?? URL sync ????????????????????????????????????????
+
     private void UpdateUrl()
     {
         var url = "/gallery";
         var parts = new List<string>();
         if (!string.IsNullOrWhiteSpace(_query))
             parts.Add($"query={Uri.EscapeDataString(_query)}");
+        if (_category is not null)
+            parts.Add($"category={Uri.EscapeDataString(_category)}");
+        if (_location is not null)
+            parts.Add($"location={Uri.EscapeDataString(_location)}");
+        if (_photographer is not null)
+            parts.Add($"photographer={Uri.EscapeDataString(_photographer)}");
+        if (_year.HasValue)
+            parts.Add($"year={_year.Value}");
+        if (_sort != "newest")
+            parts.Add($"sort={Uri.EscapeDataString(_sort)}");
         if (_page > 1)
             parts.Add($"page={_page}");
         if (parts.Count > 0)

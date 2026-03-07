@@ -1,0 +1,62 @@
+@* Active filter chip bar — shows removable tags for each active filter *@
+
+@if (_chips.Count > 0)
+{
+    <div class="display-flex flex-wrap flex-align-center grid-gap-05 margin-bottom-2"
+         role="region" aria-label="Active filters">
+        <span class="text-base font-body-2xs margin-right-05">Filters:</span>
+        @foreach (var chip in _chips)
+        {
+            <span class="usa-tag display-inline-flex flex-align-center padding-x-1 padding-y-05 radius-pill"
+                  style="background-color: #005ea2; cursor: pointer;"
+                  @onclick="() => chip.OnRemove.InvokeAsync()"
+                  role="button"
+                  tabindex="0"
+                  aria-label="Remove filter: @chip.Label">
+                @chip.Label
+                <span class="margin-left-05 font-body-3xs" aria-hidden="true">?</span>
+            </span>
+        }
+        <button type="button"
+                class="usa-button usa-button--unstyled font-body-2xs text-base-dark margin-left-1"
+                @onclick="OnClearAll">
+            Clear all
+        </button>
+    </div>
+}
+
+@code {
+    [Parameter] public string? Query { get; set; }
+    [Parameter] public string? Category { get; set; }
+    [Parameter] public string? Location { get; set; }
+    [Parameter] public string? Photographer { get; set; }
+    [Parameter] public int? Year { get; set; }
+
+    [Parameter] public EventCallback OnClearQuery { get; set; }
+    [Parameter] public EventCallback OnClearCategory { get; set; }
+    [Parameter] public EventCallback OnClearLocation { get; set; }
+    [Parameter] public EventCallback OnClearPhotographer { get; set; }
+    [Parameter] public EventCallback OnClearYear { get; set; }
+    [Parameter] public EventCallback OnClearAll { get; set; }
+
+    private record Chip(string Label, EventCallback OnRemove);
+
+    private List<Chip> _chips
+    {
+        get
+        {
+            var list = new List<Chip>();
+            if (!string.IsNullOrWhiteSpace(Query))
+                list.Add(new($"\"{Query}\"", OnClearQuery));
+            if (!string.IsNullOrWhiteSpace(Category))
+                list.Add(new($"Category: {Category}", OnClearCategory));
+            if (!string.IsNullOrWhiteSpace(Location))
+                list.Add(new($"Location: {Location}", OnClearLocation));
+            if (!string.IsNullOrWhiteSpace(Photographer))
+                list.Add(new($"Photographer: {Photographer}", OnClearPhotographer));
+            if (Year.HasValue)
+                list.Add(new($"Year: {Year}", OnClearYear));
+            return list;
+        }
+    }
+}

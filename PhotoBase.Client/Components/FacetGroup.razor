@@ -1,0 +1,42 @@
+@* A single collapsible facet group (accordion section) with clickable values *@
+
+<h4 class="usa-accordion__heading">
+    <button type="button"
+            class="usa-accordion__button"
+            aria-expanded="true"
+            aria-controls="@Id">
+        @Title
+    </button>
+</h4>
+<div id="@Id" class="usa-accordion__content">
+    <ul class="usa-list usa-list--unstyled">
+        @foreach (var facet in Values)
+        {
+            var isActive = facet.Value == SelectedValue;
+            <li class="margin-bottom-05">
+                <button type="button"
+                        class="usa-button usa-button--unstyled font-body-2xs display-flex flex-justify width-full text-left padding-y-05 @(isActive ? "text-bold text-primary" : "text-base-dark")"
+                        style="@(isActive ? "background: rgba(0,87,148,0.08); border-radius: 2px; padding-left: 4px; padding-right: 4px;" : "padding-left: 4px; padding-right: 4px;")"
+                        @onclick="() => OnValueSelected.InvokeAsync(facet.Value)"
+                        aria-pressed="@isActive.ToString().ToLower()">
+                    <span class="flex-fill">
+                        @if (isActive)
+                        {
+                            <span aria-hidden="true">? </span>
+                        }
+                        @facet.Value
+                    </span>
+                    <span class="text-base font-body-3xs">@facet.Count</span>
+                </button>
+            </li>
+        }
+    </ul>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter, EditorRequired] public string Id { get; set; } = "";
+    [Parameter] public List<FacetValueDto> Values { get; set; } = new();
+    [Parameter] public string? SelectedValue { get; set; }
+    [Parameter] public EventCallback<string?> OnValueSelected { get; set; }
+}

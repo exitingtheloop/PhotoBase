@@ -1,0 +1,85 @@
+@* Faceted filter sidebar using USWDS accordion + checkbox patterns *@
+
+@if (_hasAnyFacets)
+{
+    <div class="usa-accordion usa-accordion--bordered">
+        @if (Facets.Categories.Count > 0)
+        {
+            <FacetGroup Title="Category"
+                        Id="filter-category"
+                        Values="Facets.Categories"
+                        SelectedValue="@SelectedCategory"
+                        OnValueSelected="val => SelectFilter(nameof(SelectedCategory), val)" />
+        }
+        @if (Facets.Locations.Count > 0)
+        {
+            <FacetGroup Title="Location"
+                        Id="filter-location"
+                        Values="Facets.Locations"
+                        SelectedValue="@SelectedLocation"
+                        OnValueSelected="val => SelectFilter(nameof(SelectedLocation), val)" />
+        }
+        @if (Facets.Photographers.Count > 0)
+        {
+            <FacetGroup Title="Photographer"
+                        Id="filter-photographer"
+                        Values="Facets.Photographers"
+                        SelectedValue="@SelectedPhotographer"
+                        OnValueSelected="val => SelectFilter(nameof(SelectedPhotographer), val)" />
+        }
+        @if (Facets.Years.Count > 0)
+        {
+            <FacetGroup Title="Year"
+                        Id="filter-year"
+                        Values="Facets.Years"
+                        SelectedValue="@(SelectedYear?.ToString())"
+                        OnValueSelected="val => SelectFilter(nameof(SelectedYear), val)" />
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public FacetsDto Facets { get; set; } = new();
+
+    [Parameter] public string? SelectedCategory { get; set; }
+    [Parameter] public string? SelectedLocation { get; set; }
+    [Parameter] public string? SelectedPhotographer { get; set; }
+    [Parameter] public int? SelectedYear { get; set; }
+
+    [Parameter] public EventCallback<string?> SelectedCategoryChanged { get; set; }
+    [Parameter] public EventCallback<string?> SelectedLocationChanged { get; set; }
+    [Parameter] public EventCallback<string?> SelectedPhotographerChanged { get; set; }
+    [Parameter] public EventCallback<int?> SelectedYearChanged { get; set; }
+
+    /// <summary>Fired after any filter changes so the parent can reload.</summary>
+    [Parameter] public EventCallback OnFiltersChanged { get; set; }
+
+    private bool _hasAnyFacets =>
+     Facets.Categories.Count > 0 || Facets.Locations.Count > 0 ||
+        Facets.Photographers.Count > 0 || Facets.Years.Count > 0;
+
+    private async Task SelectFilter(string which, string? value)
+    {
+        switch (which)
+        {
+            case nameof(SelectedCategory):
+                SelectedCategory = SelectedCategory == value ? null : value;
+                await SelectedCategoryChanged.InvokeAsync(SelectedCategory);
+                break;
+            case nameof(SelectedLocation):
+                SelectedLocation = SelectedLocation == value ? null : value;
+                await SelectedLocationChanged.InvokeAsync(SelectedLocation);
+                break;
+            case nameof(SelectedPhotographer):
+                SelectedPhotographer = SelectedPhotographer == value ? null : value;
+                await SelectedPhotographerChanged.InvokeAsync(SelectedPhotographer);
+                break;
+            case nameof(SelectedYear):
+                var yearVal = int.TryParse(value, out var y) ? y : (int?)null;
+                SelectedYear = SelectedYear == yearVal ? null : yearVal;
+                await SelectedYearChanged.InvokeAsync(SelectedYear);
+                break;
+        }
+        await OnFiltersChanged.InvokeAsync();
+    }
+}
